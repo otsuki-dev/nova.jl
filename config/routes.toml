@@ -1,0 +1,41 @@
+# Advanced route configuration
+# This file allows you to configure custom routes beyond the standard file-based system
+
+# Custom static routes
+[routes.static]
+"/home" = "pages/index.jl"
+"/about" = "pages/about.jl"
+"/contact" = "pages/contact.jl"
+
+# Dynamic routes with parameters
+[routes.dynamic]
+"/user/:id" = "pages/user.jl"
+"/post/:slug" = "pages/post.jl"
+"/api/users/:id" = "api/users.jl"
+
+# Redirects
+[routes.redirects]
+"/old-home" = "/"
+"/blog" = "/posts"
+
+# Middleware for specific routes
+[routes.middleware]
+"/admin/*" = ["auth", "admin"]
+"/api/*" = ["cors", "rate_limit"]
+
+# Global settings
+[config]
+default_404 = "pages/404.jl"
+default_500 = "pages/500.jl"
+base_url = "http://localhost:2518"
+
+# CORS configuration for API
+[config.cors]
+allowed_origins = ["http://localhost:3000", "https://myapp.com"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE"]
+allowed_headers = ["Content-Type", "Authorization"]
+
+# Rate limiting
+[config.rate_limit]
+requests_per_minute = 60
+burst_size = 10
