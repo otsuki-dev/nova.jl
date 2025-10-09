@@ -1,0 +1,464 @@
+#!/usr/bin/env julia
+
+"""
+Nova.jl CLI Tool
+
+Commands:
+    julia nova dev     - Start development server with hot reload
+    julia nova build   - Build for production
+    julia nova start   - Start production server
+    julia nova help    - Show this help
+"""
+
+const NOVA_VERSION = "0.0.2"
+
+# ANSI Color codes for professional output
+const COLORS = (
+    reset = "\e[0m",
+    bold = "\e[1m",
+    dim = "\e[2m",
+    
+    # Colors
+    blue = "\e[34m",
+    cyan = "\e[36m",
+    green = "\e[32m",
+    yellow = "\e[33m",
+    red = "\e[31m",
+    magenta = "\e[35m",
+    white = "\e[37m",
+    gray = "\e[90m",
+    
+    # Bright colors
+    bright_blue = "\e[94m",
+    bright_cyan = "\e[96m",
+    bright_green = "\e[92m",
+    bright_yellow = "\e[93m",
+    bright_magenta = "\e[95m",
+)
+
+# Professional symbols (no emojis)
+const SYMBOLS = (
+    check = "✓",
+    cross = "✗",
+    arrow = "→",
+    dot = "•",
+    star = "★",
+    info = "ℹ",
+    warning = "⚠",
+    package = "▣",
+    rocket = "▲",
+    folder = "▸",
+    file = "▫",
+    reload = "↻",
+    server = "⚡",
+)
+
+function color_print(text, color=:reset; bold=false, newline=true)
+    style = bold ? COLORS.bold : ""
+    print(style, getfield(COLORS, color), text, COLORS.reset)
+    newline && println()
+end
+
+function show_help()
+    color_print("", :reset, newline=false)
+    println()
+    color_print("╔═════════════════════════════════════════════════════════╗", :bright_cyan, bold=true)
+    color_print("║                  Nova.jl CLI v$NOVA_VERSION                     ║", :bright_cyan, bold=true)
+    color_print("╚═════════════════════════════════════════════════════════╝", :bright_cyan, bold=true)
+    println()
+    
+    color_print("USAGE:", :bright_yellow, bold=true)
+    color_print("    julia nova <command> [options]", :white)
+    println()
+    
+    color_print("COMMANDS:", :bright_yellow, bold=true)
+    color_print("    dev      ", :bright_green, bold=true, newline=false)
+    color_print("Start development server with hot reload", :gray)
+    color_print("    build    ", :bright_green, bold=true, newline=false)
+    color_print("Build application for production", :gray)
+    color_print("    start    ", :bright_green, bold=true, newline=false)
+    color_print("Start production server (optimized, no hot reload)", :gray)
+    color_print("    help     ", :bright_green, bold=true, newline=false)
+    color_print("Show this help message", :gray)
+    println()
+    
+    color_print("EXAMPLES:", :bright_yellow, bold=true)
+    color_print("    julia nova dev              ", :cyan, newline=false)
+    color_print("# Start dev server on port 2518", :gray)
+    color_print("    julia nova dev --port 3000  ", :cyan, newline=false)
+    color_print("# Custom port", :gray)
+    color_print("    julia nova build            ", :cyan, newline=false)
+    color_print("# Build for production", :gray)
+    color_print("    julia nova start            ", :cyan, newline=false)
+    color_print("# Start production server", :gray)
+    println()
+    
+    color_print("OPTIONS:", :bright_yellow, bold=true)
+    color_print("    --port <number>    ", :white, newline=false)
+    color_print("Server port (default: 2518)", :gray)
+    color_print("    --host <address>   ", :white, newline=false)
+    color_print("Server host (default: 127.0.0.1)", :gray)
+    color_print("    --verbose          ", :white, newline=false)
+    color_print("Show detailed logs", :gray)
+    println()
+    
+    color_print("For more information, visit: ", :gray, newline=false)
+    color_print("https://github.com/otsuki-dev/nova.jl", :bright_blue)
+    println()
+end
+
+function parse_args(args)
+    options = Dict(
+        "port" => 2518,
+        "host" => "127.0.0.1",
+        "verbose" => false
+    )
+    
+    i = 1
+    while i <= length(args)
+        arg = args[i]
+        if arg == "--port" && i < length(args)
+            options["port"] = parse(Int, args[i + 1])
+            i += 2
+        elseif arg == "--host" && i < length(args)
+            options["host"] = args[i + 1]
+            i += 2
+        elseif arg == "--verbose"
+            options["verbose"] = true
+            i += 1
+        else
+            i += 1
+        end
+    end
+    
+    return options
+end
+
+function cmd_dev(args)
+    options = parse_args(args)
+    
+    println()
+    color_print("╔══════════════════════════════════════════════════════╗", :bright_cyan, bold=true)
+    color_print("║              Nova.jl Development Server              ║", :bright_cyan, bold=true)
+    color_print("╚══════════════════════════════════════════════════════╝", :bright_cyan, bold=true)
+    println()
+    
+    # Load Nova framework
+    Base.include(Main, joinpath(@__DIR__, "src", "Nova.jl"))
+    Nova = Main.Nova
+    
+    # Load initial modules
+    if isfile("pages/index.jl")
+        print("  ", SYMBOLS.package, "  ")
+        color_print("Loading pages...", :bright_blue)
+        include("pages/index.jl")
+    end
+    
+    # Start hot reload
+    print("  ", SYMBOLS.reload, "  ")
+    color_print("Starting hot reload...", :bright_magenta)
+    Base.invokelatest(Nova.watch_and_reload,
+        dirs=["pages", "src", "components"],
+        extensions=[".jl"],
+        modules=isfile("pages/index.jl") ? ["pages/index.jl"] : String[],
+        interval=1.0
+    )
+    
+    # Create handler
+    handler = Base.invokelatest(Nova.create_handler,
+        pages_dir="pages",
+        public_dir="public"
+    )
+    
+    # Start server
+    println()
+    print("  ", SYMBOLS.server, "  ")
+    color_print("Server starting...", :bright_green, bold=true)
+    println()
+    
+    print("  ", SYMBOLS.arrow, "  ")
+    color_print("Local:   ", :gray, newline=false)
+    color_print("http://$(options["host"]):$(options["port"])", :bright_cyan, bold=true)
+    
+    print("  ", SYMBOLS.folder, "  ")
+    color_print("Pages:   ", :gray, newline=false)
+    color_print("./pages", :white)
+    
+    print("  ", SYMBOLS.folder, "  ")
+    color_print("Public:  ", :gray, newline=false)
+    color_print("./public", :white)
+    
+    println()
+    color_print("  Press Ctrl+C to stop", :dim)
+    println()
+    
+    Base.invokelatest(Nova.start_server,
+        handler, 
+        host=options["host"], 
+        port=options["port"],
+        verbose=options["verbose"]
+    )
+end
+
+function cmd_build(args)
+    options = parse_args(args)
+    
+    println()
+    color_print("╔══════════════════════════════════════════════════════╗", :bright_cyan, bold=true)
+    color_print("║              Nova.jl Production Build                ║", :bright_cyan, bold=true)
+    color_print("╚══════════════════════════════════════════════════════╝", :bright_cyan, bold=true)
+    println()
+    
+    print("  ", SYMBOLS.package, "  ")
+    color_print("Analyzing project structure...", :bright_blue)
+    
+    # Check for required directories
+    required_dirs = ["pages", "src"]
+    missing_dirs = filter(d -> !isdir(d), required_dirs)
+    
+    if !isempty(missing_dirs)
+        print("  ", SYMBOLS.cross, "  ")
+        color_print("Error: Missing required directories: $(join(missing_dirs, ", "))", :red, bold=true)
+        println()
+        exit(1)
+    end
+    
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Project structure valid", :bright_green)
+    
+    # Create build directory
+    build_dir = "build"
+    if isdir(build_dir)
+        print("  ", SYMBOLS.info, "  ")
+        color_print("Cleaning previous build...", :yellow)
+        rm(build_dir, recursive=true)
+    end
+    
+    mkdir(build_dir)
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Build directory created", :bright_green)
+    
+    # Copy source files
+    print("  ", SYMBOLS.package, "  ")
+    color_print("Copying source files...", :bright_blue)
+    
+    cp("src", joinpath(build_dir, "src"), force=true)
+    cp("pages", joinpath(build_dir, "pages"), force=true)
+    
+    if isdir("components")
+        cp("components", joinpath(build_dir, "components"), force=true)
+    end
+    
+    if isdir("public")
+        cp("public", joinpath(build_dir, "public"), force=true)
+    end
+    
+    if isfile("Project.toml")
+        cp("Project.toml", joinpath(build_dir, "Project.toml"), force=true)
+    end
+    
+    if isfile("Manifest.toml")
+        cp("Manifest.toml", joinpath(build_dir, "Manifest.toml"), force=true)
+    end
+    
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Files copied successfully", :bright_green)
+    
+    # Create production startup script
+    print("  ", SYMBOLS.file, "  ")
+    color_print("Creating production script...", :bright_blue)
+    
+    startup_script = """
+#!/usr/bin/env julia
+
+# Nova.jl Production Server
+# Auto-generated by: julia nova build
+
+using Pkg
+Pkg.activate(".")
+
+include("src/Nova.jl")
+using .Nova
+
+println("🚀 Starting Nova.jl production server...")
+
+handler = Nova.create_handler(
+    pages_dir="pages",
+    public_dir="public"
+)
+
+Nova.start_server(
+    handler,
+    host=get(ENV, "NOVA_HOST", "0.0.0.0"),
+    port=parse(Int, get(ENV, "NOVA_PORT", "2518")),
+    verbose=true
+)
+"""
+    
+    open(joinpath(build_dir, "start.jl"), "w") do f
+        write(f, startup_script)
+    end
+    
+    # Make it executable on Unix systems
+    if Sys.isunix()
+        chmod(joinpath(build_dir, "start.jl"), 0o755)
+    end
+    
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Production script created", :bright_green)
+    
+    # Create README
+    readme_content = """
+# Nova.jl Production Build
+
+This directory contains a production-ready build of your Nova.jl application.
+
+## Starting the Server
+
+### Quick Start
+\`\`\`bash
+julia start.jl
+\`\`\`
+
+### Custom Configuration
+\`\`\`bash
+# Custom port
+NOVA_PORT=3000 julia start.jl
+
+# Custom host (0.0.0.0 allows external access)
+NOVA_HOST=0.0.0.0 julia start.jl
+
+# Both
+NOVA_HOST=0.0.0.0 NOVA_PORT=3000 julia start.jl
+\`\`\`
+
+## Deployment
+
+1. Copy this entire directory to your server
+2. Ensure Julia is installed
+3. Run `julia start.jl`
+
+## Environment Variables
+
+- `NOVA_HOST`: Server host (default: 0.0.0.0)
+- `NOVA_PORT`: Server port (default: 2518)
+
+## Structure
+
+- `src/`: Framework source code
+- `pages/`: Application pages
+- `public/`: Static assets
+- `components/`: Reusable components (if any)
+- `start.jl`: Production startup script
+"""
+    
+    open(joinpath(build_dir, "README.md"), "w") do f
+        write(f, readme_content)
+    end
+    
+    println()
+    print("  ", SYMBOLS.star, "  ")
+    color_print("Build completed successfully!", :bright_green, bold=true)
+    println()
+    
+    print("  ", SYMBOLS.folder, "  ")
+    color_print("Output: ", :gray, newline=false)
+    color_print("./build/", :bright_cyan, bold=true)
+    
+    print("  ", SYMBOLS.arrow, "  ")
+    color_print("To start: ", :gray, newline=false)
+    color_print("cd build && julia start.jl", :bright_cyan)
+    
+    println()
+end
+
+function cmd_start(args)
+    options = parse_args(args)
+    
+    println()
+    color_print("╔══════════════════════════════════════════════════════╗", :bright_cyan, bold=true)
+    color_print("║              Nova.jl Production Server               ║", :bright_cyan, bold=true)
+    color_print("╚══════════════════════════════════════════════════════╝", :bright_cyan, bold=true)
+    println()
+    
+    # Load Nova framework
+    Base.include(Main, joinpath(@__DIR__, "src", "Nova.jl"))
+    Nova = Main.Nova
+    
+    # Load pages (no hot reload in production)
+    if isfile("pages/index.jl")
+        print("  ", SYMBOLS.package, "  ")
+        color_print("Loading pages...", :bright_blue)
+        include("pages/index.jl")
+    end
+    
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Application loaded", :bright_green)
+    
+    # Create handler
+    handler = Base.invokelatest(Nova.create_handler,
+        pages_dir="pages",
+        public_dir="public"
+    )
+    
+    # Start server
+    println()
+    print("  ", SYMBOLS.server, "  ")
+    color_print("Production server starting...", :bright_green, bold=true)
+    println()
+    
+    print("  ", SYMBOLS.arrow, "  ")
+    color_print("Host:   ", :gray, newline=false)
+    color_print("$(options["host"]):$(options["port"])", :bright_cyan, bold=true)
+    
+    print("  ", SYMBOLS.info, "  ")
+    color_print("Mode:   ", :gray, newline=false)
+    color_print("Production (no hot reload)", :bright_magenta)
+    
+    println()
+    color_print("  Press Ctrl+C to stop", :dim)
+    println()
+    
+    Base.invokelatest(Nova.start_server,
+        handler, 
+        host=options["host"], 
+        port=options["port"],
+        verbose=true
+    )
+end
+
+function main()
+    # Skip "nova" if it's the first argument (when running `julia nova <command>`)
+    start_idx = (length(ARGS) > 0 && ARGS[1] == "nova") ? 2 : 1
+    
+    if length(ARGS) < start_idx
+        show_help()
+        return
+    end
+    
+    command = ARGS[start_idx]
+    args = ARGS[start_idx+1:end]
+    
+    if command == "dev"
+        cmd_dev(args)
+    elseif command == "build"
+        cmd_build(args)
+    elseif command == "start"
+        cmd_start(args)
+    elseif command == "help" || command == "--help" || command == "-h"
+        show_help()
+    else
+        println()
+        print("  ", SYMBOLS.cross, "  ")
+        color_print("Unknown command: ", :red, bold=true, newline=false)
+        color_print(command, :white, bold=true)
+        print("  ", SYMBOLS.info, "  ")
+        color_print("Run 'julia nova help' for usage information.", :gray)
+        println()
+        exit(1)
+    end
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

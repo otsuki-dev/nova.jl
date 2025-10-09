@@ -1,15 +1,19 @@
 name = "Nova.jl"
 uuid = "3773a66d-0ab3-48fd-a7ea-3eeb4935db53"
 authors = ["Felipe Samuel <129466661+felipe-sbm@users.noreply.github.com>"]
-version = "0.0.1"
+version = "0.0.2"
 
 [deps]
-HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+WebSockets = "104b5d7c-a370-577a-8038-80a2059c5097"
 
 [compat]
-julia = "1.6"
-HTTP = "1.0"
-Revise = "3.0"
 FileWatching = "1.0"
+HTTP = "1.0"
+JSON = "0.21.4"
+Revise = "3.0"
+WebSockets = "1.6.0"
+julia = "1.6"

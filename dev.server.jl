@@ -1,4 +1,8 @@
 using HTTP
+using WebSockets
+using JSON
+include("src/chess_server.jl")
+using .ChessServer
 using FileWatching
 using Dates
 
@@ -25,15 +29,99 @@ function create_handler()
             if static_response !== nothing
                 return static_response
             end
-            
-            if req.target == "/"
+            # HTTP API fallback for chess (join, move, state)
+            if startswith(req.target, "/api/chess")
+                try
+                    method = String(req.method)
+                    if req.target == "/api/chess/join" && method == "POST"
+                        body = String(take!(req.body))
+                        obj = JSON.parse(body)
+                        state = ChessServer.create_game(get(obj, "mode", "human"))
+                        return HTTP.Response(200, JSON.json(Dict("type"=>"state","id"=>state[:id],"board"=>state[:board],"turn"=>state[:turn])))
+                    elseif req.target == "/api/chess/move" && method == "POST"
+                        body = String(take!(req.body))
+                        obj = JSON.parse(body)
+                        id = obj["id"]
+                        ok, reason = ChessServer.handle_move(id, obj["from"], obj["to"])
+                        s = ChessServer.get_state(id)
+                        # if ai mode and it's ai turn
+                        if s !== nothing && s[:mode] == "ai" && s[:turn] == "black"
+                            ChessServer.ai_move!(s)
+                        end
+                        s2 = ChessServer.get_state(id)
+                        return HTTP.Response(200, JSON.json(Dict("type"=>"move_result","ok"=>ok,"reason"=>reason,"state"=> (s2 === nothing ? nothing : s2[:board]))))
+                    elseif startswith(req.target, "/api/chess/state") && method == "GET"
+                        q = HTTP.URIs.queryparams(req.target)
+                        id = get(q, "id", nothing)
+                        s = ChessServer.get_state(id)
+                        if s === nothing
+                            return HTTP.Response(404, "{}")
+                        end
+                        return HTTP.Response(200, JSON.json(Dict("type"=>"state","id"=>s[:id],"board"=>s[:board],"turn"=>s[:turn])))
+                    else
+                        return HTTP.Response(404, "{}")
+                    end
+                catch e
+                    @error "API chess error: $e"
+                    return HTTP.Response(500, "{}")
+                end
+            end
+
+            # WebSocket endpoint for chess
+            if req.target == "/ws/chess"
+                return WebSockets.upgrade(req) do ws
+                    # simple text-based JSON protocol
+                    try
+                        # Expect first message to be join -> {"type":"join","mode":"ai"|"human"}
+                        msg = WebSockets.read(ws)
+                        obj = JSON.parse(msg)
+                        state = ChessServer.create_game(get(obj, "mode", "human"))
+                        # send initial state
+                        WebSockets.send(ws, JSON.json(Dict("type"=>"state","id"=>state[:id],"board"=>state[:board],"turn"=>state[:turn])))
+                        while true
+                            msg = WebSockets.read(ws)
+                            obj = JSON.parse(msg)
+                            if obj["type"] == "move"
+                                ok, reason = ChessServer.handle_move(state[:id], obj["from"], obj["to"])
+                                WebSockets.send(ws, JSON.json(Dict("type"=>"move_result","ok"=>ok,"reason"=>reason)))
+                                # send updated state
+                                s = ChessServer.get_state(state[:id])
+                                WebSockets.send(ws, JSON.json(Dict("type"=>"state","board"=>s[:board],"turn"=>s[:turn])))
+                                # if AI mode and it's AI turn, make AI move
+                                if state[:mode] == "ai" && s[:turn] == "black"
+                                    ChessServer.ai_move!(s)
+                                    WebSockets.send(ws, JSON.json(Dict("type"=>"state","board"=>s[:board],"turn"=>s[:turn])))
+                                end
+                            end
+                        end
+                    catch e
+                        @warn "WebSocket error: $e"
+                    end
+                end
+            elseif req.target == "/templates"
+                try
+                    Base.include(Main, "pages/templates.jl")
+                    return HTTP.Response(200, Main.handler())
+                catch e
+                    @error "Error loading templates page: $e"
+                    return HTTP.Response(500, "Error loading templates page")
+                end
+            elseif req.target == "/documentation"
+                try
+                    Base.include(Main, "pages/documentation.jl")
+                    return HTTP.Response(200, Main.handler())
+                catch e
+                    @error "Error loading documentation page: $e"
+                    return HTTP.Response(500, "Error loading documentation page")
+                end
+            elseif req.target == "/"
                 return HTTP.Response(200, Main.handler())
             else
                 return HTTP.Response(404, """
                 <html><body>
                 <h1>404 - Page Not Found</h1>
                 <p>The page you're looking for doesn't exist.</p>
-                <a href="/">← Back to home</a>
+                <a href="/">Back to home</a>
                 </body></html>
                 """)
             end
@@ -43,7 +131,7 @@ function create_handler()
             <html><body>
             <h1>500 - Server Error</h1>
             <pre>$e</pre>
-            <p><a href="/">← Back to home</a></p>
+            <p><a href="/">Back to home</a></p>
             </body></html>
             """)
         end

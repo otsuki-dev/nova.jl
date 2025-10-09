@@ -1,43 +1,41 @@
-using ..Nova
-
-include("../components/header.jl")
+"""
+Home page - Simple HTML without styling
+Focus: Core functionality and routing
+"""
 
 function handler()
-	header_html = header()
-
-	return Nova.render(
-		"""
-	$header_html
-	<div class='container fade-in'>
-		<h1>Welcome to Nova.jl!</h1>
-		<p>This is a simple web application built with Nova.jl framework.</p>
-		
-		<h2>What is Nova.jl?</h2>
-		<p>
-			The Nova APP project is an unfinished prototype of a web framework built with Julia.
-			This framework allows you to create frontend apps using only Julia and HTML.
-			You can make HTTP requests, integrate with an API, create games, blogs, social networks,
-			and much more.
-		</p>
-		<div>
-			<h2>Auto Features:</h2>
-			<ul>
-				<li><strong>Auto CSS/SCSS loading</strong> - All files in /styles are loaded automatically</li>
-				<li><strong>Static file serving</strong> - Files in /public are served automatically</li>
-				<li><strong>Hot reload</strong> - Changes are reflected instantly</li>
-				<li><strong>Zero configuration</strong> - Just create files and they work!</li>
-			</ul>
-		</div>
-		
-		<div class="center">
-			<a
-			 class="btn"
-			 href="https://github.com/otsuki-dev/nova.jl"
-			 target="_blank" rel="noopener noreferrer">
-			 Git Repository
-			 </a>
-		</div>
-	</div>
-	""",
-	)
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nova.jl - Home</title>
+    </head>
+    <body>
+        <h1>Welcome to Nova.jl</h1>
+        <p>A minimal, high-performance web framework for Julia.</p>
+        
+        <h2>Navigation</h2>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/about">About</a></li>
+            <li><a href="/api/hello">API Example</a></li>
+        </ul>
+        
+        <h2>Framework Features</h2>
+        <ul>
+            <li>File-based routing</li>
+            <li>Hot reload in development</li>
+            <li>Fast HTTP.jl server</li>
+            <li>Minimal overhead</li>
+            <li>Pure Julia</li>
+        </ul>
+        
+        <footer>
+            <p>Nova.jl v0.0.2 - Built with Julia</p>
+        </footer>
+    </body>
+    </html>
+    """
 end

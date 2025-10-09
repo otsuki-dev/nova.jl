@@ -6,6 +6,8 @@
 "/home" = "pages/index.jl"
 "/about" = "pages/about.jl"
 "/contact" = "pages/contact.jl"
+"/documentation" = "pages/documentation.jl"
+"/templates" = "pages/templates.jl"
 
 # Dynamic routes with parameters
 [routes.dynamic]

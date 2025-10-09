@@ -1,0 +1,128 @@
+"""
+    Server.Server
+
+Core HTTP server module using HTTP.jl as the base.
+Provides a clean, modular server implementation.
+"""
+
+# Already exported by Nova.jl
+# Uses route_to_file, handle_page_route from Router.jl and serve_static from Assets.jl
+
+"""
+    create_handler(; pages_dir::String="pages", public_dir::String="public") -> Function
+
+Creates an HTTP request handler function.
+The handler processes requests and returns appropriate responses.
+
+# Arguments
+- `pages_dir::String`: Directory containing page files (default: "pages")
+- `public_dir::String`: Directory containing static files (default: "public")
+
+# Examples
+```julia
+handler = create_handler()
+handler = create_handler(pages_dir="views", public_dir="assets")
+```
+"""
+function create_handler(; pages_dir::String="pages", public_dir::String="public")
+    return function(req::HTTP.Request)
+        try
+            # 1. Try to serve static files first
+            static_response = serve_static(req.target, public_dir)
+            if static_response !== nothing
+                return static_response
+            end
+            
+            # 2. Try to route to a page file
+            page_file = route_to_file(req.target, pages_dir)
+            if page_file !== nothing
+                result = handle_page_route(page_file)
+                if result !== nothing
+                    # If handler returns HTTP.Response (e.g., for APIs), return it directly
+                    if result isa HTTP.Response
+                        return result
+                    else
+                        # Otherwise, treat as HTML string
+                        return HTTP.Response(200, ["Content-Type" => "text/html"], string(result))
+                    end
+                end
+            end
+            
+            # 3. Return 404 if nothing matched
+            return HTTP.Response(404, """
+            <html><body>
+            <h1>404 - Page Not Found</h1>
+            <p>The page you're looking for doesn't exist.</p>
+            <a href="/">Back to home</a>
+            </body></html>
+            """)
+        catch e
+            @error "Request error: $e"
+            return HTTP.Response(500, """
+            <html><body>
+            <h1>500 - Server Error</h1>
+            <pre>$e</pre>
+            <p><a href="/">Back to home</a></p>
+            </body></html>
+            """)
+        end
+    end
+end
+
+"""
+    start_server(handler=create_handler(); host::String="127.0.0.1", port::Int=2518, verbose::Bool=true)
+
+Starts the HTTP server with the given handler.
+
+# Arguments
+- `handler`: Request handler function (default: create_handler())
+- `host::String`: Server host address (default: "127.0.0.1")
+- `port::Int`: Server port (default: 2518)
+- `verbose::Bool`: Whether to show startup messages (default: true)
+
+# Examples
+```julia
+# Start with defaults
+start_server()
+
+# Start on custom port
+start_server(port=3000)
+
+# Start with custom handler
+my_handler = create_handler(pages_dir="views")
+start_server(my_handler, port=3000)
+```
+"""
+function start_server(handler=create_handler(); 
+                     host::String="127.0.0.1", 
+                     port::Int=2518,
+                     verbose::Bool=true)
+    
+    if verbose
+        printstyled("  ⚡  ", color=:green, bold=true)
+        printstyled("Nova.jl Server starting...", color=:white, bold=true)
+        println()
+        printstyled("  →  ", color=:cyan, bold=true)
+        printstyled("Listening on ", color=:light_black)
+        printstyled("http://$host:$port", color=:cyan)
+        println()
+        printstyled("  ℹ  ", color=:blue)
+        printstyled("Press Ctrl+C to stop", color=:light_black)
+        println()
+    end
+    
+    try
+        HTTP.serve(handler, host, port)
+    catch e
+        if isa(e, InterruptException)
+            # Saída sutil ao parar o servidor (apenas uma linha em branco)
+            println()
+        else
+            printstyled("  ✗  ", color=:red, bold=true)
+            printstyled("Server error: ", color=:light_black)
+            printstyled("$e", color=:red)
+            println()
+            rethrow(e)
+        end
+    end
+end
