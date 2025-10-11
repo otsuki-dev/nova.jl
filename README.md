@@ -100,7 +100,12 @@ julia nova dev
 <tr>
 <td><code>julia nova build</code></td>
 <td>Build application for production</td>
-<td><code>julia nova build</code></td>
+<td><code>julia nova build --aot</code></td>
+</tr>
+<tr>
+<td><code>julia nova compile</code></td>
+<td>Compile framework to optimized sysimage (AOT)</td>
+<td><code>julia nova compile</code></td>
 </tr>
 <tr>
 <td><code>julia nova start</code></td>
