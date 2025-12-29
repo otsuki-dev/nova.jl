@@ -42,7 +42,49 @@ using .Nova
         @test contains(html, "<title>Test Page</title>")
         @test contains(html, "charset=\"UTF-8\"")
     end
+
+    @testset "Rendering.Template" begin
+        # Test variable substitution
+        data = Dict("name" => "World")
+        @test Nova.render_view("Hello {{name}}!", data) == "Hello World!"
+        
+        # Test missing variable (should be empty)
+        @test Nova.render_view("Hello {{missing}}!", data) == "Hello !"
+        
+        # Test nested object access (dot notation simulation)
+        # Note: Our simple engine currently handles flat keys mostly, 
+        # but let's test what we implemented (simple keys)
+        
+        # Test Sections (Lists)
+        list_data = Dict("items" => [
+            Dict("val" => "A"),
+            Dict("val" => "B")
+        ])
+        list_template = "{{#items}}{{val}}{{/items}}"
+        @test Nova.render_view(list_template, list_data) == "AB"
+        
+        # Test Sections (Boolean/Truthiness)
+        bool_data = Dict("show" => true, "hide" => false, "val" => "Shown")
+        @test Nova.render_view("{{#show}}{{val}}{{/show}}", bool_data) == "Shown"
+        @test Nova.render_view("{{#hide}}{{val}}{{/hide}}", bool_data) == ""
+    end
     
+    @testset "Rendering.HTML (Template Integration)" begin
+        # Create a temporary template file
+        template_content = "<h1>Hello {{name}}</h1>"
+        template_path = joinpath(mktempdir(), "test.html")
+        write(template_path, template_content)
+        
+        data = Dict("name" => "Integration")
+        
+        # Test render(path, data)
+        html = Nova.render(template_path, data, title="Integration Test")
+        
+        @test contains(html, "<!DOCTYPE html>")
+        @test contains(html, "<h1>Hello Integration</h1>")
+        @test contains(html, "<title>Integration Test</title>")
+    end
+
     @testset "Server.Router" begin
         # Create temporary pages directory for testing
         test_pages_dir = mktempdir()

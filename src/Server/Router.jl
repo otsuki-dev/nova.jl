@@ -7,27 +7,24 @@ Module for handling routing logic and file-based routing system.
 # Already exported by Nova.jl
 
 """
-    scan_routes(pages_dir::String="pages") -> Dict{String, String}
+    scan_routes(pages_dir::String="pages", api_dir::String="api") -> Dict{String, String}
 
-Scans the pages directory and generates a route map.
+Scans the pages and api directories and generates a route map.
 Returns a dictionary mapping URL paths to file paths.
 
 # Examples
 ```julia
-routes = scan_routes("pages")
-# Dict("/", "pages/index.jl", "/about" => "pages/about.jl", ...)
+routes = scan_routes("pages", "api")
+# Dict("/", "pages/index.jl", "/api/users" => "api/users.jl", ...)
 ```
 """
-function scan_routes(pages_dir::String="pages")
+function scan_routes(pages_dir::String="pages", api_dir::String="api")
     route_map = Dict{String, String}()
     
-    if !isdir(pages_dir)
-        @warn "Pages directory not found: $pages_dir"
-        return route_map
-    end
-    
-    # Recursively scan for .jl files
+    # Helper to scan a directory
     function scan_directory(dir::String, base_path::String="")
+        if !isdir(dir) return end
+        
         for item in readdir(dir, join=false)
             full_path = joinpath(dir, item)
             
@@ -49,7 +46,18 @@ function scan_routes(pages_dir::String="pages")
         end
     end
     
-    scan_directory(pages_dir)
+    # Scan pages directory (mapped to root)
+    if isdir(pages_dir)
+        scan_directory(pages_dir, "")
+    else
+        @warn "Pages directory not found: $pages_dir"
+    end
+    
+    # Scan api directory (mapped to /api)
+    if isdir(api_dir)
+        scan_directory(api_dir, "/api")
+    end
+    
     return route_map
 end
 
@@ -123,22 +131,42 @@ function generate_route_file(route_map::Dict{String, String}, output_file::Strin
 end
 
 """
-    route_to_file(path::String, pages_dir::String="pages") -> Union{String, Nothing}
+    route_to_file(path::String, pages_dir::String="pages", api_dir::String="api") -> Union{String, Nothing}
 
-Converts a URL path to a file path in the pages directory.
+Converts a URL path to a file path in the pages or api directory.
 Returns the file path if it exists, nothing otherwise.
 
 # Examples
 ```julia
 route_to_file("/")              # Returns "pages/index.jl"
 route_to_file("/about")         # Returns "pages/about.jl"
-route_to_file("/docs/guide")    # Returns "pages/docs/guide.jl"
+route_to_file("/api/users")     # Returns "api/users.jl"
 ```
 """
-function route_to_file(path::String, pages_dir::String="pages")
+function route_to_file(path::String, pages_dir::String="pages", api_dir::String="api")
     # Remove leading/trailing slashes
     clean_path = strip(path, '/')
     
+    # Check if it's an API route from the top-level api/ folder
+    if (startswith(clean_path, "api/") || clean_path == "api") && isdir(api_dir)
+        # Remove "api" prefix for file lookup in api_dir
+        api_path = clean_path == "api" ? "" : clean_path[4:end]
+        api_path = strip(api_path, '/')
+        
+        # 1. Try direct mapping in api/
+        if isempty(api_path)
+            file_path = joinpath(api_dir, "index.jl")
+            if isfile(file_path) return file_path end
+        else
+            file_path = joinpath(api_dir, api_path * ".jl")
+            if isfile(file_path) return file_path end
+            
+            dir_index = joinpath(api_dir, api_path, "index.jl")
+            if isfile(dir_index) return dir_index end
+        end
+    end
+
+    # Standard pages lookup
     # Root path maps to index.jl
     if isempty(clean_path) || clean_path == "/"
         file_path = joinpath(pages_dir, "index.jl")

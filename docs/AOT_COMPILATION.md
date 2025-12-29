@@ -11,19 +11,17 @@ AOT (Ahead-Of-Time) compilation creates a custom system image containing pre-com
 ### Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│  julia nova compile                      │
-│                                          │
-│  1. Loads PackageCompiler.jl            │
-│  2. Executes precompile_nova.jl         │
-│  3. Creates nova_sys.so with:           │
-│     - HTTP.jl                           │
-│     - JSON.jl                           │
-│     - FileWatching.jl                   │
-│     - Nova.jl (entire framework)        │
-│                                          │
-│  Output: build/nova_sys.so              │
-└─────────────────────────────────────────┘
+-- julia nova compile --
+
+1. Loads PackageCompiler.jl            
+2. Executes precompile_nova.jl         
+3. Creates nova_sys.so with:           
+     - HTTP.jl                           
+     - JSON.jl                           
+     - FileWatching.jl                   
+     - Nova.jl (entire framework)        
+                                          
+Output: build/nova_sys.so
 ```
 
 ## Available Commands

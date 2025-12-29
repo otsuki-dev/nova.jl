@@ -49,3 +49,24 @@ function render(content::String;
     </html>
     """
 end
+
+"""
+    render(template_path::String, data::Dict; kwargs...) -> String
+
+Renders a template file with data and wraps it in the HTML document structure.
+This is a convenience function combining `render_template` and `render`.
+
+# Arguments
+- `template_path::String`: Path to the template file
+- `data::Dict`: Data to pass to the template
+- `kwargs...`: Arguments passed to the base `render` function (title, auto_styles, etc.)
+
+# Examples
+```julia
+html = render("templates/index.html", Dict("name" => "World"), title="Home")
+```
+"""
+function render(template_path::String, data::Dict; kwargs...)
+    content = render_template(template_path, data)
+    return render(content; kwargs...)
+end

@@ -5,7 +5,7 @@
 **A minimal, modular web framework for Julia**
 
 [![Julia Version](https://img.shields.io/badge/julia-v1.6+-9558B2?style=for-the-badge&logo=julia&logoColor=white)](https://julialang.org)
-[![Version](https://img.shields.io/badge/version-0.0.2-blue?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.0.3-blue?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-success?style=for-the-badge)](STATUS.md)
 [![Tests](https://img.shields.io/badge/tests-18%20passing-success?style=for-the-badge)](test/runtests.jl)

@@ -9,7 +9,7 @@ Provides a clean, modular server implementation.
 # Uses route_to_file, handle_page_route from Router.jl and serve_static from Assets.jl
 
 """
-    create_handler(; pages_dir::String="pages", public_dir::String="public") -> Function
+    create_handler(; pages_dir::String="pages", public_dir::String="public", api_dir::String="api") -> Function
 
 Creates an HTTP request handler function.
 The handler processes requests and returns appropriate responses.
@@ -17,6 +17,7 @@ The handler processes requests and returns appropriate responses.
 # Arguments
 - `pages_dir::String`: Directory containing page files (default: "pages")
 - `public_dir::String`: Directory containing static files (default: "public")
+- `api_dir::String`: Directory containing api files (default: "api")
 
 # Examples
 ```julia
@@ -24,7 +25,7 @@ handler = create_handler()
 handler = create_handler(pages_dir="views", public_dir="assets")
 ```
 """
-function create_handler(; pages_dir::String="pages", public_dir::String="public")
+function create_handler(; pages_dir::String="pages", public_dir::String="public", api_dir::String="api")
     return function(req::HTTP.Request)
         try
             # 1. Try to serve static files first
@@ -34,7 +35,7 @@ function create_handler(; pages_dir::String="pages", public_dir::String="public"
             end
             
             # 2. Try to route to a page file
-            page_file = route_to_file(req.target, pages_dir)
+            page_file = route_to_file(req.target, pages_dir, api_dir)
             if page_file !== nothing
                 result = handle_page_route(page_file)
                 if result !== nothing

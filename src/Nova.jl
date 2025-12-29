@@ -31,13 +31,17 @@ include("Utils/MIME.jl")
 include("Utils/FileSystem.jl")
 include("Rendering/Styles.jl")
 include("Rendering/Assets.jl")
+include("Rendering/Template.jl")
 include("Rendering/HTML.jl")
+include("Database/DB.jl")
 include("Server/Router.jl")
 include("Server/Server.jl")
 include("DevTools/HotReload.jl")
 
 # Export main API
 export render, start_server, create_handler
+export render_view, render_template
+export DB
 export auto_load_styles, process_scss, serve_static, auto_favicon, get_mime_type
 export watch_and_reload, reload_modules
 export route_to_file, handle_page_route, scan_routes, generate_route_file

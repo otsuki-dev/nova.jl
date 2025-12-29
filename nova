@@ -10,7 +10,10 @@ Commands:
     julia nova help    - Show this help
 """
 
-const NOVA_VERSION = "0.0.2"
+using Pkg
+Pkg.activate(@__DIR__)
+
+const NOVA_VERSION = "0.0.3"
 
 # ANSI Color codes for professional output
 const COLORS = (
@@ -157,59 +160,66 @@ function cmd_dev(args)
     
     # Load Nova framework
     Base.include(Main, joinpath(@__DIR__, "src", "Nova.jl"))
-    Nova = Main.Nova
     
-    # Load initial modules
-    if isfile("pages/index.jl")
-        print("  ", SYMBOLS.package, "  ")
-        color_print("Loading pages...", :bright_blue)
-        include("pages/index.jl")
+    # Define runner function in the new world age
+    run_dev = @eval (options) -> begin
+        Nova = Main.Nova
+        
+        # Load initial modules
+        if isfile("pages/index.jl")
+            print("  ", SYMBOLS.package, "  ")
+            color_print("Loading pages...", :bright_blue)
+            include("pages/index.jl")
+        end
+        
+        # Start hot reload
+        print("  ", SYMBOLS.reload, "  ")
+        color_print("Starting hot reload...", :bright_magenta)
+        Nova.watch_and_reload(
+            dirs=["pages", "src", "components"],
+            extensions=[".jl"],
+            modules=isfile("pages/index.jl") ? ["pages/index.jl"] : String[],
+            interval=1.0
+        )
+        
+        # Create handler
+        handler = Nova.create_handler(
+            pages_dir="pages",
+            public_dir="public"
+        )
+        
+        # Start server
+        println()
+        print("  ", SYMBOLS.server, "  ")
+        color_print("Server starting...", :bright_green, bold=true)
+        println()
+        
+        print("  ", SYMBOLS.arrow, "  ")
+        color_print("Local:   ", :gray, newline=false)
+        color_print("http://$(options["host"]):$(options["port"])", :bright_cyan, bold=true)
+        
+        print("  ", SYMBOLS.folder, "  ")
+        color_print("Pages:   ", :gray, newline=false)
+        color_print("./pages", :white)
+        
+        print("  ", SYMBOLS.folder, "  ")
+        color_print("Public:  ", :gray, newline=false)
+        color_print("./public", :white)
+        
+        println()
+        color_print("  Press Ctrl+C to stop", :dim)
+        println()
+        
+        Nova.start_server(
+            handler, 
+            host=options["host"], 
+            port=options["port"],
+            verbose=options["verbose"]
+        )
     end
     
-    # Start hot reload
-    print("  ", SYMBOLS.reload, "  ")
-    color_print("Starting hot reload...", :bright_magenta)
-    Base.invokelatest(Nova.watch_and_reload,
-        dirs=["pages", "src", "components"],
-        extensions=[".jl"],
-        modules=isfile("pages/index.jl") ? ["pages/index.jl"] : String[],
-        interval=1.0
-    )
-    
-    # Create handler
-    handler = Base.invokelatest(Nova.create_handler,
-        pages_dir="pages",
-        public_dir="public"
-    )
-    
-    # Start server
-    println()
-    print("  ", SYMBOLS.server, "  ")
-    color_print("Server starting...", :bright_green, bold=true)
-    println()
-    
-    print("  ", SYMBOLS.arrow, "  ")
-    color_print("Local:   ", :gray, newline=false)
-    color_print("http://$(options["host"]):$(options["port"])", :bright_cyan, bold=true)
-    
-    print("  ", SYMBOLS.folder, "  ")
-    color_print("Pages:   ", :gray, newline=false)
-    color_print("./pages", :white)
-    
-    print("  ", SYMBOLS.folder, "  ")
-    color_print("Public:  ", :gray, newline=false)
-    color_print("./public", :white)
-    
-    println()
-    color_print("  Press Ctrl+C to stop", :dim)
-    println()
-    
-    Base.invokelatest(Nova.start_server,
-        handler, 
-        host=options["host"], 
-        port=options["port"],
-        verbose=options["verbose"]
-    )
+    # Execute runner
+    Base.invokelatest(run_dev, options)
 end
 
 function cmd_build(args)
@@ -381,9 +391,9 @@ NOVA_HOST=0.0.0.0 NOVA_PORT=3000 julia start.jl
         color_print("Scanning routes...", :bright_blue)
         
         Base.include(Main, "src/Nova.jl")
-        Nova = Main.Nova
+        Nova = getfield(Main, :Nova)
         
-        route_map = Nova.scan_routes("pages")
+        route_map = Base.invokelatest(getfield(Nova, :scan_routes), "pages", "api")
         print("  ", SYMBOLS.check, "  ")
         color_print("Found $(length(route_map)) routes", :bright_green)
         
@@ -391,7 +401,7 @@ NOVA_HOST=0.0.0.0 NOVA_PORT=3000 julia start.jl
         print("  ", SYMBOLS.file, "  ")
         color_print("Generating routes file...", :bright_blue)
         
-        routes_file = Nova.generate_route_file(route_map, joinpath(build_dir, "routes_generated.jl"))
+        routes_file = Base.invokelatest(getfield(Nova, :generate_route_file), route_map, joinpath(build_dir, "routes_generated.jl"))
         print("  ", SYMBOLS.check, "  ")
         color_print("Routes file created", :bright_green)
         
@@ -615,48 +625,55 @@ function cmd_start(args)
     
     # Load Nova framework
     Base.include(Main, joinpath(@__DIR__, "src", "Nova.jl"))
-    Nova = Main.Nova
     
-    # Load pages (no hot reload in production)
-    if isfile("pages/index.jl")
-        print("  ", SYMBOLS.package, "  ")
-        color_print("Loading pages...", :bright_blue)
-        include("pages/index.jl")
+    # Define runner function in the new world age
+    run_prod = @eval (options) -> begin
+        Nova = Main.Nova
+        
+        # Load pages (no hot reload in production)
+        if isfile("pages/index.jl")
+            print("  ", SYMBOLS.package, "  ")
+            color_print("Loading pages...", :bright_blue)
+            include("pages/index.jl")
+        end
+        
+        print("  ", SYMBOLS.check, "  ")
+        color_print("Application loaded", :bright_green)
+        
+        # Create handler
+        handler = Nova.create_handler(
+            pages_dir="pages",
+            public_dir="public"
+        )
+        
+        # Start server
+        println()
+        print("  ", SYMBOLS.server, "  ")
+        color_print("Production server starting...", :bright_green, bold=true)
+        println()
+        
+        print("  ", SYMBOLS.arrow, "  ")
+        color_print("Host:   ", :gray, newline=false)
+        color_print("$(options["host"]):$(options["port"])", :bright_cyan, bold=true)
+        
+        print("  ", SYMBOLS.info, "  ")
+        color_print("Mode:   ", :gray, newline=false)
+        color_print("Production (no hot reload)", :bright_magenta)
+        
+        println()
+        color_print("  Press Ctrl+C to stop", :dim)
+        println()
+        
+        Nova.start_server(
+            handler, 
+            host=options["host"], 
+            port=options["port"],
+            verbose=true
+        )
     end
     
-    print("  ", SYMBOLS.check, "  ")
-    color_print("Application loaded", :bright_green)
-    
-    # Create handler
-    handler = Base.invokelatest(Nova.create_handler,
-        pages_dir="pages",
-        public_dir="public"
-    )
-    
-    # Start server
-    println()
-    print("  ", SYMBOLS.server, "  ")
-    color_print("Production server starting...", :bright_green, bold=true)
-    println()
-    
-    print("  ", SYMBOLS.arrow, "  ")
-    color_print("Host:   ", :gray, newline=false)
-    color_print("$(options["host"]):$(options["port"])", :bright_cyan, bold=true)
-    
-    print("  ", SYMBOLS.info, "  ")
-    color_print("Mode:   ", :gray, newline=false)
-    color_print("Production (no hot reload)", :bright_magenta)
-    
-    println()
-    color_print("  Press Ctrl+C to stop", :dim)
-    println()
-    
-    Base.invokelatest(Nova.start_server,
-        handler, 
-        host=options["host"], 
-        port=options["port"],
-        verbose=true
-    )
+    # Execute runner
+    Base.invokelatest(run_prod, options)
 end
 
 function cmd_compile(args)

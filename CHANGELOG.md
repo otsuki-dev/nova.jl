@@ -7,22 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.0.3] - 2025-12-29
 
 ### Added
-- AOT compilation support via `julia nova compile` command (Task A-4)
-- Complete AOT build with user routes via `julia nova build --aot` (Task A-5)
-- Automatic route scanning and generation system (scan_routes, generate_route_file)
-- Enhanced precompilation script that exercises all user routes
-- Automatic sysimage usage in production startup script
-- Complete build system with framework and user routes AOT compilation
-- PackageCompiler.jl integration for system image generation
-- Precompilation script (precompile_nova.jl) for optimized cold starts
-- Ahead-of-time compilation infrastructure for 90% faster startup times
-- Route compilation verification and status reporting
-- Comprehensive AOT compilation documentation
+- **API Routing Support**: Implemented dedicated routing for the `api/` directory. Files in `api/` are now automatically mapped to `/api/*` routes (Task A-2).
+- **Environment Activation**: The CLI now automatically activates the project environment (`Pkg.activate(@__DIR__)`) to ensure dependencies are loaded correctly.
 
----
+### Changed
+- **World Age Fixes**: Refactored CLI commands (`dev`, `start`, `build`) to use `@eval` and `Base.invokelatest` correctly, resolving "world age" warnings and errors in Julia 1.12.
+- **Template Module**: Simplified `Rendering.Template` module structure and fixed export issues that were causing `UndefVarError` in tests.
+- **HTML Rendering**: Updated `Rendering.HTML` to integrate correctly with the refactored Template module.
+
+### Fixed
+- **Dependency Issues**: Corrected the UUID for `SQLite` in `Project.toml` to match the General registry.
+- **Syntax Errors**: Fixed a syntax error in `src/Rendering/Template.jl`.
+- **Port Conflicts**: Improved error handling for port conflicts during development server startup.
 
 ## [0.0.2] - 2025-10-08
 
