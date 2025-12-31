@@ -121,6 +121,9 @@ using .Nova
         @test response.status == 404
         @test contains(String(response.body), "404")
     end
+
+    # Include new stress/robustness tests
+    include("stress_tests.jl")
 end
 
 println("\n✅ All tests passed!")

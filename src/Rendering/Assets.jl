@@ -21,7 +21,18 @@ response = serve_static("/images/photo.jpg", "assets")
 """
 function serve_static(request_path::String, public_dir::String="public")
     clean_path = lstrip(request_path, '/')
+    
+    # Security check: Prevent path traversal
+    # Resolve absolute paths
+    abs_public_dir = abspath(public_dir)
     public_file = joinpath(public_dir, clean_path)
+    abs_public_file = abspath(public_file)
+    
+    # Check if the resolved file path starts with the resolved public directory path
+    if !startswith(abs_public_file, abs_public_dir)
+        @warn "Security Alert: Path traversal attempt blocked: $request_path"
+        return nothing
+    end
     
     if !isfile(public_file)
         return nothing
