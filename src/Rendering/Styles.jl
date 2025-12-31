@@ -4,7 +4,28 @@
 Module for handling CSS and SCSS styles, including automatic loading and SCSS processing.
 """
 
+# Cache for processed styles
+# Map: styles_dir => (last_check_time, content)
+const STYLE_CACHE = Dict{String, Tuple{Float64, String}}()
+
 # Already exported by Nova.jl
+
+"""
+    minify_css(css_content::String) -> String
+
+Minifies CSS content by removing whitespace, newlines, and comments.
+"""
+function minify_css(css_content::String)
+    # Remove comments
+    css = replace(css_content, r"/\*.*?\*/"s => "")
+    # Remove newlines and multiple spaces
+    css = replace(css, r"\s+" => " ")
+    # Remove space around special characters
+    css = replace(css, r"\s*([:;{}])\s*" => s"\1")
+    # Remove last semicolon in block
+    css = replace(css, r";}" => "}")
+    return strip(css)
+end
 
 """
     process_scss(scss_content::String) -> String
@@ -52,10 +73,20 @@ function process_scss(scss_content::String)
 end
 
 """
+    clear_style_cache()
+
+Clears the style cache. Call this when style files change.
+"""
+function clear_style_cache()
+    empty!(STYLE_CACHE)
+end
+
+"""
     auto_load_styles(styles_dir::String="styles") -> String
 
 Automatically loads all CSS and SCSS files from the specified directory
 and returns them wrapped in a <style> tag.
+Uses caching for performance.
 
 # Examples
 ```julia
@@ -64,6 +95,11 @@ styles_html = auto_load_styles("custom_styles")
 ```
 """
 function auto_load_styles(styles_dir::String="styles")
+    # Check cache first
+    if haskey(STYLE_CACHE, styles_dir)
+        return STYLE_CACHE[styles_dir][2]
+    end
+
     styles_content = ""
     
     if !isdir(styles_dir)
@@ -80,12 +116,20 @@ function auto_load_styles(styles_dir::String="styles")
                     content = process_scss(content)
                 end
                 
-                styles_content *= "\n" * content
+                # Minify for production/efficiency
+                content = minify_css(content)
+                
+                styles_content *= content
             catch e
                 @warn "Error loading style $file: $e"
             end
         end
     end
     
-    return isempty(styles_content) ? "" : """<style>\n$styles_content\n</style>"""
+    result = isempty(styles_content) ? "" : """<style>\n$styles_content\n</style>"""
+    
+    # Update cache (store current time as placeholder for now)
+    STYLE_CACHE[styles_dir] = (time(), result)
+    
+    return result
 end

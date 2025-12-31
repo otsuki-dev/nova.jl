@@ -1,0 +1,10 @@
+name = "{{NAME}}"
+uuid = "{{UUID}}"
+version = "0.1.0"
+authors = ["Your Name <your.email@example.com>"]
+
+[deps]
+Nova = "3773a66d-0ab3-48fd-a7ea-3eeb4935db53"
+
+[compat]
+julia = "1.6"

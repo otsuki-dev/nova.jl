@@ -37,6 +37,8 @@ include("Database/DB.jl")
 include("Server/Router.jl")
 include("Server/Server.jl")
 include("DevTools/HotReload.jl")
+include("DevTools/Scaffold.jl")
+using .Scaffold
 
 # Export main API
 export render, start_server, create_handler
@@ -45,6 +47,8 @@ export DB
 export auto_load_styles, process_scss, serve_static, auto_favicon, get_mime_type
 export watch_and_reload, reload_modules
 export route_to_file, handle_page_route, scan_routes, generate_route_file
+export register_static_routes, match_static_route, clear_page_cache, clear_style_cache
+export create_app
 
 # Convenience function
 greet() = print("Welcome to Nova.jl!")

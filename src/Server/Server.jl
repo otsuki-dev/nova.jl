@@ -34,10 +34,27 @@ function create_handler(; pages_dir::String="pages", public_dir::String="public"
                 return static_response
             end
             
-            # 2. Try to route to a page file
-            page_file = route_to_file(req.target, pages_dir, api_dir)
+            # 2. Try static routes (AOT/Production)
+            # This is much faster than filesystem scanning
+            static_handler, static_params = match_static_route(req.target)
+            if static_handler !== nothing
+                try
+                    result = static_handler(req, static_params)
+                    if result isa HTTP.Response
+                        return result
+                    else
+                        return HTTP.Response(200, ["Content-Type" => "text/html"], string(result))
+                    end
+                catch e
+                    @error "Error in static handler: $e"
+                    rethrow(e)
+                end
+            end
+
+            # 3. Try to route to a page file (Dev/Fallback)
+            page_file, params = match_route(req.target, pages_dir, api_dir)
             if page_file !== nothing
-                result = handle_page_route(page_file)
+                result = handle_page_route(page_file, params, req)
                 if result !== nothing
                     # If handler returns HTTP.Response (e.g., for APIs), return it directly
                     if result isa HTTP.Response
@@ -50,6 +67,19 @@ function create_handler(; pages_dir::String="pages", public_dir::String="public"
             end
             
             # 3. Return 404 if nothing matched
+            # Try to find a custom 404 page
+            not_found_file = joinpath(pages_dir, "404.jl")
+            if isfile(not_found_file)
+                result = handle_page_route(not_found_file, Dict{String,String}(), req)
+                if result !== nothing
+                    if result isa HTTP.Response
+                        return result
+                    else
+                        return HTTP.Response(404, ["Content-Type" => "text/html"], string(result))
+                    end
+                end
+            end
+
             return HTTP.Response(404, """
             <html><body>
             <h1>404 - Page Not Found</h1>

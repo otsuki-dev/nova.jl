@@ -21,6 +21,14 @@ reload_modules(["src/Nova.jl", "pages/index.jl"])
 """
 function reload_modules(modules::Vector{String}=["src/Nova.jl"])
     try
+        # Clear caches
+        if isdefined(Main.Nova, :clear_style_cache)
+            Main.Nova.clear_style_cache()
+        end
+        if isdefined(Main.Nova, :clear_page_cache)
+            Main.Nova.clear_page_cache()
+        end
+
         for module_path in modules
             if isfile(module_path)
                 Base.include(Main, module_path)

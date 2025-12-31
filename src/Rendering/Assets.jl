@@ -31,15 +31,21 @@ function serve_static(request_path::String, public_dir::String="public")
         mime_type = get_mime_type(public_file)
         
         # Binary files (images, fonts, etc.)
+        headers = [
+            "Content-Type" => mime_type,
+            "Cache-Control" => "public, max-age=3600",
+            "Access-Control-Allow-Origin" => "*"
+        ]
+        
         if startswith(mime_type, "image/") || 
            startswith(mime_type, "font/") || 
            mime_type == "application/octet-stream"
             content = read(public_file)
-            return HTTP.Response(200, ["Content-Type" => mime_type], content)
+            return HTTP.Response(200, headers, content)
         else
             # Text files
             content = read(public_file, String)
-            return HTTP.Response(200, ["Content-Type" => mime_type], content)
+            return HTTP.Response(200, headers, content)
         end
     catch e
         @warn "Error serving file $public_file: $e"

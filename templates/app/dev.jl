@@ -10,9 +10,6 @@ Usage:
     julia examples/basic/dev.jl
 """
 
-# Add parent directory to load path to use local Nova.jl
-push!(LOAD_PATH, joinpath(@__DIR__, "..", ".."))
-
 using Nova
 
 println("=" ^ 60)

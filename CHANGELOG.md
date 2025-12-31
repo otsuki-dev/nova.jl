@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.4] - 2025-12-31
+
+### Performance
+- **Zero-Latency Routing**: Implemented `PAGE_CACHE` to cache compiled page modules, eliminating recompilation overhead on subsequent requests.
+- **Static Route Optimization**: Added support for `STATIC_ROUTES` to bypass filesystem scanning in production (AOT) builds.
+- **Asset Caching**: Implemented `STYLE_CACHE` for processed SCSS/CSS and added HTTP `Cache-Control` headers for static assets.
+- **Minification**: Added automatic CSS minification (`minify_css`) to reduce payload size.
+
+### Architecture
+- **AOT Readiness**: Refactored `Server.jl` to prioritize pre-registered static routes, enabling true "tree-shaking" of routing logic in compiled builds.
+- **Robust Execution**: Enhanced dynamic handler execution with `Base.invokelatest` to resolve world age issues in Julia 1.12+.
+
+### Changed
+- **Hot Reload**: Updated `HotReload.jl` to automatically clear page and style caches upon file modification.
+- **Router**: Optimized `handle_page_route` to use cached modules whenever possible.
+
 ## [0.0.3] - 2025-12-29
 
 ### Added

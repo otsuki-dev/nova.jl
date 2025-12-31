@@ -4,6 +4,84 @@
 Module for handling routing logic and file-based routing system.
 """
 
+# Cache for compiled page modules
+# Map: file_path => (mtime, module_instance)
+const PAGE_CACHE = Dict{String, Tuple{Float64, Module}}()
+
+# Static routes for AOT/Production
+# Map: url_path => handler_function
+const STATIC_ROUTES = Ref{Union{Dict{String, Function}, Nothing}}(nothing)
+
+"""
+    register_static_routes(routes::Dict{String, Function})
+
+Registers a static route map for production use.
+If registered, these routes take precedence over file system scanning.
+"""
+function register_static_routes(routes::Dict{String, Function})
+    STATIC_ROUTES[] = routes
+end
+
+"""
+    match_static_route(path::String) -> Tuple{Union{Function, Nothing}, Dict{String, String}}
+
+Matches a path against registered static routes.
+Returns (handler_function, params).
+"""
+function match_static_route(path::String)
+    routes = STATIC_ROUTES[]
+    if routes === nothing
+        return nothing, Dict{String,String}()
+    end
+    
+    # 1. Exact match
+    if haskey(routes, path)
+        return routes[path], Dict{String,String}()
+    end
+    
+    # 2. Pattern match
+    clean_path = strip(path, '/')
+    segments = isempty(clean_path) ? String[] : split(clean_path, '/')
+    
+    for (route_pattern, handler) in routes
+        # Skip exact matches (already checked)
+        if !contains(route_pattern, "[") continue end
+        
+        pat_clean = strip(route_pattern, '/')
+        pat_segments = isempty(pat_clean) ? String[] : split(pat_clean, '/')
+        
+        if length(segments) != length(pat_segments) continue end
+        
+        match = true
+        params = Dict{String,String}()
+        
+        for i in 1:length(segments)
+            if startswith(pat_segments[i], "[") && endswith(pat_segments[i], "]")
+                key = pat_segments[i][2:end-1]
+                params[key] = segments[i]
+            elseif segments[i] != pat_segments[i]
+                match = false
+                break
+            end
+        end
+        
+        if match
+            return handler, params
+        end
+    end
+    
+    return nothing, Dict{String,String}()
+end
+
+"""
+    clear_page_cache()
+
+Clears the page module cache. Call this when page files change.
+"""
+function clear_page_cache()
+    empty!(PAGE_CACHE)
+end
+
 # Already exported by Nova.jl
 
 """
@@ -115,7 +193,8 @@ function generate_route_file(route_map::Dict{String, String}, output_file::Strin
         if !first
             println(io, ",")
         end
-        print(io, "    \"$route_path\" => () -> $module_name.handler()")
+        # We wrap the handler to pass req and params
+        print(io, "    \"$route_path\" => (req, params) -> $module_name.handler(req, params)")
         first = false
     end
     
@@ -128,6 +207,105 @@ function generate_route_file(route_map::Dict{String, String}, output_file::Strin
     write(output_file, String(take!(io)))
     
     return output_file
+end
+
+"""
+    match_route(path::String, pages_dir::String="pages", api_dir::String="api") -> Tuple{Union{String, Nothing}, Dict{String, String}}
+
+Matches a URL path to a file path, extracting dynamic parameters.
+Returns a tuple of (file_path, params).
+
+# Examples
+```julia
+file, params = match_route("/users/123")
+# ("pages/users/[id].jl", Dict("id" => "123"))
+```
+"""
+function match_route(path::String, pages_dir::String="pages", api_dir::String="api")
+    clean_path = strip(path, '/')
+    segments = isempty(clean_path) ? String[] : split(clean_path, '/')
+    
+    # Check for API route
+    if (startswith(clean_path, "api/") || clean_path == "api") && isdir(api_dir)
+        api_segments = clean_path == "api" ? String[] : segments[2:end]
+        file, params = find_fs_match(api_segments, api_dir)
+        if file !== nothing
+            return file, params
+        end
+    end
+    
+    # Check for Page route
+    return find_fs_match(segments, pages_dir)
+end
+
+function find_fs_match(segments::Vector{SubString{String}}, current_dir::String)
+    return find_fs_match(String.(segments), current_dir)
+end
+
+function find_fs_match(segments::Vector{String}, current_dir::String)
+    if !isdir(current_dir)
+        return nothing, Dict{String,String}()
+    end
+
+    if isempty(segments)
+        # Look for index.jl
+        index_file = joinpath(current_dir, "index.jl")
+        if isfile(index_file)
+            return index_file, Dict{String,String}()
+        end
+        return nothing, Dict{String,String}()
+    end
+
+    segment = segments[1]
+    remaining = segments[2:end]
+    
+    # 1. Exact Match
+    
+    # File: segment.jl (only if last segment)
+    if isempty(remaining)
+        file_path = joinpath(current_dir, segment * ".jl")
+        if isfile(file_path)
+            return file_path, Dict{String,String}()
+        end
+    end
+    
+    # Directory: segment/
+    dir_path = joinpath(current_dir, segment)
+    if isdir(dir_path)
+        file, params = find_fs_match(remaining, dir_path)
+        if file !== nothing
+            return file, params
+        end
+    end
+    
+    # 2. Dynamic Match ([param])
+    
+    entries = readdir(current_dir)
+    
+    # File: [param].jl (only if last segment)
+    if isempty(remaining)
+        for entry in entries
+            if startswith(entry, "[") && endswith(entry, "].jl")
+                param_name = entry[2:end-4]
+                return joinpath(current_dir, entry), Dict(param_name => segment)
+            end
+        end
+    end
+    
+    # Directory: [param]/
+    for entry in entries
+        full_path = joinpath(current_dir, entry)
+        if isdir(full_path) && startswith(entry, "[") && endswith(entry, "]")
+            param_name = entry[2:end-1]
+            file, params = find_fs_match(remaining, full_path)
+            if file !== nothing
+                params[param_name] = segment
+                return file, params
+            end
+        end
+    end
+    
+    return nothing, Dict{String,String}()
 end
 
 """
@@ -144,83 +322,89 @@ route_to_file("/api/users")     # Returns "api/users.jl"
 ```
 """
 function route_to_file(path::String, pages_dir::String="pages", api_dir::String="api")
-    # Remove leading/trailing slashes
-    clean_path = strip(path, '/')
-    
-    # Check if it's an API route from the top-level api/ folder
-    if (startswith(clean_path, "api/") || clean_path == "api") && isdir(api_dir)
-        # Remove "api" prefix for file lookup in api_dir
-        api_path = clean_path == "api" ? "" : clean_path[4:end]
-        api_path = strip(api_path, '/')
-        
-        # 1. Try direct mapping in api/
-        if isempty(api_path)
-            file_path = joinpath(api_dir, "index.jl")
-            if isfile(file_path) return file_path end
-        else
-            file_path = joinpath(api_dir, api_path * ".jl")
-            if isfile(file_path) return file_path end
-            
-            dir_index = joinpath(api_dir, api_path, "index.jl")
-            if isfile(dir_index) return dir_index end
-        end
-    end
-
-    # Standard pages lookup
-    # Root path maps to index.jl
-    if isempty(clean_path) || clean_path == "/"
-        file_path = joinpath(pages_dir, "index.jl")
-        return isfile(file_path) ? file_path : nothing
-    end
-    
-    # Try direct mapping
-    file_path = joinpath(pages_dir, clean_path * ".jl")
-    if isfile(file_path)
-        return file_path
-    end
-    
-    # Try as directory with index.jl
-    dir_index = joinpath(pages_dir, clean_path, "index.jl")
-    if isfile(dir_index)
-        return dir_index
-    end
-    
-    return nothing
+    file, _ = match_route(path, pages_dir, api_dir)
+    return file
 end
 
 """
-    handle_page_route(file_path::String) -> Union{String, HTTP.Response, Nothing}
+    handle_page_route(file_path::String, params::Dict{String,String}=Dict{String,String}(), req::HTTP.Request=HTTP.Request("GET", "/")) -> Union{String, HTTP.Response, Nothing}
 
 Loads and executes a page file, returning the rendered HTML or HTTP.Response.
-The page file should define a `handler()` function.
+Uses a cache to avoid recompiling unchanged files.
 
 # Examples
 ```julia
 html = handle_page_route("pages/index.jl")
 ```
 """
-function handle_page_route(file_path::String)
+function handle_page_route(file_path::String, params::Dict{String,String}=Dict{String,String}(), req::HTTP.Request=HTTP.Request("GET", "/"))
     if !isfile(file_path)
         return nothing
     end
     
     try
-        # Include the page file in Main module
-        Base.include(Main, file_path)
+        current_mtime = mtime(file_path)
         
-        # Call the handler function
-        if isdefined(Main, :handler)
-            result = Main.handler()
-            # Handler can return either String (HTML) or HTTP.Response (for APIs)
-            return result
-        else
-            @warn "Page $file_path does not define a handler() function"
-            return nothing
+        # Check cache
+        if haskey(PAGE_CACHE, file_path)
+            cached_mtime, cached_mod = PAGE_CACHE[file_path]
+            if current_mtime == cached_mtime
+                # Cache hit
+                return execute_handler(cached_mod, req, params)
+            end
         end
+        
+        # Cache miss or stale - Compile
+        # Create a unique module name based on file path
+        mod_name = Symbol("Page_" * replace(file_path, r"[^a-zA-Z0-9]" => "_"))
+        
+        # Create a new module for this page
+        # We evaluate it in Main to ensure it can load packages easily, 
+        # but we keep it isolated as a named module
+        mod = Module(mod_name)
+        
+        # Make Nova available in the module
+        # We assume Nova is available in the parent scope
+        Core.eval(mod, :(using Nova))
+        Core.eval(mod, :(using HTTP))
+        
+        # Include the file content into the module
+        Base.include(mod, file_path)
+        
+        # Update cache
+        PAGE_CACHE[file_path] = (current_mtime, mod)
+        
+        return execute_handler(mod, req, params)
+        
     catch e
         @error "Error loading page $file_path: $e"
         bt = catch_backtrace()
         @error "Stacktrace:" exception=(e, bt)
+        return nothing
+    end
+end
+
+function execute_handler(mod::Module, req::HTTP.Request, params::Dict{String,String})
+    if isdefined(mod, :handler)
+        try
+            return Base.invokelatest(mod.handler, req, params)
+        catch e
+            if e isa MethodError
+                try
+                    return Base.invokelatest(mod.handler, params)
+                catch e2
+                    if e2 isa MethodError
+                        return Base.invokelatest(mod.handler)
+                    else
+                        rethrow(e2)
+                    end
+                end
+            else
+                rethrow(e)
+            end
+        end
+    else
+        @warn "Page module $(nameof(mod)) does not define a handler() function"
         return nothing
     end
 end
