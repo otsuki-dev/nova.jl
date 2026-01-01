@@ -48,7 +48,8 @@ css = Nova.process_scss(scss)
 
 # Create a handler and simulate request
 println("  → Testing handler creation...")
-handler = Nova.create_handler(pages_dir="pages", public_dir="public")
+# Use smart defaults (will find src/pages)
+handler = Nova.create_handler()
 
 # Simulate HTTP requests (without actually starting server)
 println("  → Testing request handling...")
@@ -62,8 +63,8 @@ end
 
 # Exercise file system utilities
 println("  → Testing utilities...")
-if isdir("pages")
-    files = Nova.find_files("pages", [".jl"])
+if isdir("src/pages")
+    files = Nova.find_files("src/pages", [".jl"])
 end
 
 println("✓ Precompilation script completed successfully!")

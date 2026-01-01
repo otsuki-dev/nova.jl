@@ -8,16 +8,18 @@ Provides a clean, modular server implementation.
 # Already exported by Nova.jl
 # Uses route_to_file, handle_page_route from Router.jl and serve_static from Assets.jl
 
+const HTML_HEADERS = ["Content-Type" => "text/html"]
+
 """
-    create_handler(; pages_dir::String="pages", public_dir::String="public", api_dir::String="api") -> Function
+    create_handler(; pages_dir::Union{String,Nothing}=nothing, public_dir::String="public", api_dir::Union{String,Nothing}=nothing) -> Function
 
 Creates an HTTP request handler function.
 The handler processes requests and returns appropriate responses.
 
 # Arguments
-- `pages_dir::String`: Directory containing page files (default: "pages")
-- `public_dir::String`: Directory containing static files (default: "public")
-- `api_dir::String`: Directory containing api files (default: "api")
+- `pages_dir`: Directory containing page files. Defaults to "src/pages" if it exists, otherwise "pages".
+- `public_dir`: Directory containing static files (default: "public").
+- `api_dir`: Directory containing api files. Defaults to "src/pages/api" if it exists, otherwise "api".
 
 # Examples
 ```julia
@@ -25,13 +27,40 @@ handler = create_handler()
 handler = create_handler(pages_dir="views", public_dir="assets")
 ```
 """
-function create_handler(; pages_dir::String="pages", public_dir::String="public", api_dir::String="api")
+function create_handler(; pages_dir::Union{String,Nothing}=nothing, public_dir::String="public", api_dir::Union{String,Nothing}=nothing)
+    # Smart defaults for pages_dir
+    if pages_dir === nothing
+        if isdir(joinpath("src", "pages"))
+            pages_dir = joinpath("src", "pages")
+        else
+            pages_dir = "pages"
+        end
+    end
+
+    # Smart defaults for api_dir
+    if api_dir === nothing
+        # If pages is in src/pages, api should default to src/pages/api (Next.js style)
+        if pages_dir == joinpath("src", "pages") && isdir(joinpath("src", "pages", "api"))
+            api_dir = joinpath("src", "pages", "api")
+        elseif isdir("api")
+            api_dir = "api"
+        else
+            # Fallback to pages_dir/api if it exists
+            possible_api = joinpath(pages_dir, "api")
+            api_dir = isdir(possible_api) ? possible_api : "api"
+        end
+    end
+
     return function(req::HTTP.Request)
         try
             # 1. Try to serve static files first
-            static_response = serve_static(req.target, public_dir)
-            if static_response !== nothing
-                return static_response
+            # Optimization: Only check for static files if the path contains a dot
+            # This avoids file system calls for standard routes like /about
+            if req.target != "/" && contains(req.target, ".")
+                static_response = serve_static(req.target, public_dir)
+                if static_response !== nothing
+                    return static_response
+                end
             end
             
             # 2. Try static routes (AOT/Production)
@@ -39,11 +68,12 @@ function create_handler(; pages_dir::String="pages", public_dir::String="public"
             static_handler, static_params = match_static_route(req.target)
             if static_handler !== nothing
                 try
+                    # Direct call without invokelatest for static routes (they are pre-compiled)
                     result = static_handler(req, static_params)
                     if result isa HTTP.Response
                         return result
                     else
-                        return HTTP.Response(200, ["Content-Type" => "text/html"], string(result))
+                        return HTTP.Response(200, HTML_HEADERS, string(result))
                     end
                 catch e
                     @error "Error in static handler: $e"
@@ -61,7 +91,7 @@ function create_handler(; pages_dir::String="pages", public_dir::String="public"
                         return result
                     else
                         # Otherwise, treat as HTML string
-                        return HTTP.Response(200, ["Content-Type" => "text/html"], string(result))
+                        return HTTP.Response(200, HTML_HEADERS, string(result))
                     end
                 end
             end

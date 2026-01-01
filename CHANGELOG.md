@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.5] - 2026-01-01
+
+### High Performance
+- **Radix Tree Router**: Replaced the linear routing system with a **Trie (Radix Tree)** implementation. This reduces routing complexity from O(n) to O(k), enabling constant-time lookups regardless of the number of routes.
+- **Zero-Allocation MIME Types**: Refactored `Utils/MIME.jl` to use a constant lookup table and non-allocating string operations, significantly reducing GC pressure per request.
+- **Optimized AOT Compilation**: The `generate_route_file` function now produces highly optimized code with dynamic dispatch logic, supporting multiple handler signatures (`handler()`, `handler(params)`, `handler(req, params)`) without runtime errors.
+
+### Bug Fixes
+- **World Age Safety**: Fixed `MethodError` and world age issues in `Router.jl` by correctly using `Base.invokelatest` for dynamic handler execution.
+- **Generated Code Safety**: Fixed module name sanitization in AOT builds to handle special characters (like `[id]`) correctly.
+- **Dependency Management**: Fixed missing `using Nova` and `using HTTP` in generated route files.
+
+## [0.1.0] - 2025-12-31
+
+### Milestone: First Major Release & Registry Preparation
+- **Registry Ready**: Updated `Project.toml` with full `[compat]` bounds for all dependencies, meeting Julia General Registry requirements.
+- **Starter Template**: Created `nova-starter` directory with a clean, production-ready project structure for new users.
+- **Performance**: Zero-latency routing, AOT optimizations, and asset caching are now standard.
+
+### Architecture
+- **Modern Directory Structure**: Adopted the `src/` convention. Pages are now located in `src/pages`, components in `src/components`, and styles in `src/styles`.
+- **Smart Defaults**: The framework automatically detects if the project uses the modern `src/` structure or the legacy root-level structure, ensuring backward compatibility.
+- **CLI Updates**: The `nova` CLI tool (`dev`, `build`, `start`) has been updated to support the new directory structure seamlessly.
+
+### Security
+- **Path Traversal Fix**: Patched a vulnerability in `Assets.jl` that allowed access to files outside the public directory.
+
 ## [0.0.4] - 2025-12-31
 
 ### Performance

@@ -82,11 +82,12 @@ function clear_style_cache()
 end
 
 """
-    auto_load_styles(styles_dir::String="styles") -> String
+    auto_load_styles(styles_dir::Union{String,Nothing}=nothing) -> String
 
 Automatically loads all CSS and SCSS files from the specified directory
 and returns them wrapped in a <style> tag.
 Uses caching for performance.
+Defaults to "src/styles" if it exists, otherwise "styles".
 
 # Examples
 ```julia
@@ -94,7 +95,16 @@ styles_html = auto_load_styles()
 styles_html = auto_load_styles("custom_styles")
 ```
 """
-function auto_load_styles(styles_dir::String="styles")
+function auto_load_styles(styles_dir::Union{String,Nothing}=nothing)
+    # Smart default
+    if styles_dir === nothing
+        if isdir(joinpath("src", "styles"))
+            styles_dir = joinpath("src", "styles")
+        else
+            styles_dir = "styles"
+        end
+    end
+
     # Check cache first
     if haskey(STYLE_CACHE, styles_dir)
         return STYLE_CACHE[styles_dir][2]

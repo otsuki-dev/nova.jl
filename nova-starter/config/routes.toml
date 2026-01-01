@@ -3,17 +3,17 @@
 
 # Custom static routes
 [routes.static]
-"/home" = "src/pages/index.jl"
-"/about" = "src/pages/about.jl"
-"/contact" = "src/pages/contact.jl"
-"/documentation" = "src/pages/documentation.jl"
-"/templates" = "src/pages/templates.jl"
+"/home" = "pages/index.jl"
+"/about" = "pages/about.jl"
+"/contact" = "pages/contact.jl"
+"/documentation" = "pages/documentation.jl"
+"/templates" = "pages/templates.jl"
 
 # Dynamic routes with parameters
 [routes.dynamic]
-"/user/:id" = "src/pages/user.jl"
-"/post/:slug" = "src/pages/post.jl"
-"/api/users/:id" = "src/pages/api/users.jl"
+"/user/:id" = "pages/user.jl"
+"/post/:slug" = "pages/post.jl"
+"/api/users/:id" = "api/users.jl"
 
 # Redirects
 [routes.redirects]

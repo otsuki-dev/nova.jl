@@ -1,0 +1,11 @@
+name = "MyNovaApp"
+uuid = "acaa2c61-276b-46dc-932a-2afbbd4b3062"
+version = "0.1.0"
+authors = ["Your Name <your.email@example.com>"]
+
+[deps]
+Nova = "3773a66d-0ab3-48fd-a7ea-3eeb4935db53"
+
+[compat]
+Nova = "0.1"
+julia = "1.10"

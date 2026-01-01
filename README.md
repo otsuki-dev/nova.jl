@@ -5,7 +5,7 @@
 **A minimal, modular web framework for Julia**
 
 [![Julia Version](https://img.shields.io/badge/julia-v1.6+-9558B2?style=for-the-badge&logo=julia&logoColor=white)](https://julialang.org)
-[![Version](https://img.shields.io/badge/version-0.0.3-blue?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.0.5-blue?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-success?style=for-the-badge)](STATUS.md)
 [![Tests](https://img.shields.io/badge/tests-18%20passing-success?style=for-the-badge)](test/runtests.jl)
@@ -123,14 +123,14 @@ julia nova dev
 
 ---
 
-## � Examples
+## Examples
 
 ### Create a Page
 
-File-based routing: `pages/hello.jl` → `/hello`
+File-based routing: `src/pages/hello.jl` → `/hello`
 
 ```julia
-# pages/hello.jl
+# src/pages/hello.jl
 function handler(req)
     return """
     <html>
@@ -146,7 +146,7 @@ end
 ### Create an API Endpoint
 
 ```julia
-# pages/api/users.jl
+# src/pages/api/users.jl
 using HTTP, JSON
 
 function handler(req)
@@ -183,6 +183,39 @@ ssh user@server "cd /opt/myapp/build && julia start.jl"
 
 ## Project Structure
 
+Nova.jl supports both a modern `src/` structure (recommended) and a legacy root-level structure.
+
+### Modern Structure (Recommended)
+
+```
+my-app/
+├── src/
+│   ├── pages/               Application routes
+│   │   ├── index.jl         / route
+│   │   └── api/             API endpoints
+│   ├── components/          Reusable UI components
+│   └── styles/              Global styles (SCSS/CSS)
+│
+├── public/                  Static files (images, etc.)
+├── Project.toml             Dependencies
+└── dev.jl                   Development entry point
+```
+
+### Legacy Structure
+
+```
+my-app/
+├── pages/                   Application routes
+├── components/              UI components
+├── styles/                  Global styles
+├── public/                  Static files
+└── ...
+```
+
+Nova automatically detects which structure you are using.
+
+## Framework Core
+
 ```
 nova.jl/
 ├──  src/                     Framework Core (8 modules)
@@ -192,11 +225,6 @@ nova.jl/
 │   ├── DevTools/             Hot reload system
 │   └── Utils/                Helpers & utilities
 │
-├── 📄 pages/                  Your application routes
-│   ├── index.jl              / route
-│   └── api/                  API endpoints
-│
-├──  public/                  Static files (images, etc.)
 ├──  test/                    Test suite (18 tests)
 ├──  examples/                Example applications
 └──   nova                    CLI tool

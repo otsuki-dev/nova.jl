@@ -50,38 +50,44 @@ function reload_modules(modules::Vector{String}=["src/Nova.jl"])
 end
 
 """
-    watch_and_reload(; dirs::Vector{String}=["pages", "src", "components", "styles"], 
+    watch_and_reload(; dirs::Union{Vector{String},Nothing}=nothing, 
                       extensions::Vector{String}=[".jl", ".css", ".scss"],
                       modules::Vector{String}=["src/Nova.jl"],
                       interval::Float64=1.0)
 
 Watches specified directories for file changes and triggers module reloads.
 Runs asynchronously in the background.
+Uses smart defaults for directories if not provided.
 
 # Arguments
-- `dirs::Vector{String}`: Directories to watch (default: ["pages", "src", "components", "styles"])
-- `extensions::Vector{String}`: File extensions to watch (default: [".jl", ".css", ".scss"])
-- `modules::Vector{String}`: Module files to reload on change (default: ["src/Nova.jl"])
-- `interval::Float64`: Check interval in seconds (default: 1.0)
-
-# Examples
-```julia
-# Watch with defaults
-watch_and_reload()
-
-# Custom configuration
-watch_and_reload(
-    dirs=["src", "pages"], 
-    extensions=[".jl"], 
-    interval=0.5
-)
-```
+- `dirs`: Directories to watch. Defaults to ["src/pages", "src/components", "src/styles"] if they exist, otherwise legacy paths.
+- `extensions`: File extensions to watch.
+- `modules`: Module files to reload.
+- `interval`: Check interval in seconds.
 """
 function watch_and_reload(; 
-                         dirs::Vector{String}=["pages", "src", "components", "styles"],
+                         dirs::Union{Vector{String},Nothing}=nothing,
                          extensions::Vector{String}=[".jl", ".css", ".scss"],
                          modules::Vector{String}=["src/Nova.jl"],
                          interval::Float64=1.0)
+    
+    # Smart defaults for dirs
+    if dirs === nothing
+        dirs = String[]
+        # Check for modern structure
+        if isdir(joinpath("src", "pages")) push!(dirs, joinpath("src", "pages")) end
+        if isdir(joinpath("src", "components")) push!(dirs, joinpath("src", "components")) end
+        if isdir(joinpath("src", "styles")) push!(dirs, joinpath("src", "styles")) end
+        
+        # Fallback to legacy structure if modern not found
+        if isempty(dirs)
+            push!(dirs, "pages")
+            push!(dirs, "src")
+            push!(dirs, "components")
+            push!(dirs, "styles")
+        end
+    end
+
     @async begin
         file_times = Dict{String, Float64}()
         

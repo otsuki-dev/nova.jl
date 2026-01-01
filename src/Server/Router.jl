@@ -8,69 +8,110 @@ Module for handling routing logic and file-based routing system.
 # Map: file_path => (mtime, module_instance)
 const PAGE_CACHE = Dict{String, Tuple{Float64, Module}}()
 
-# Static routes for AOT/Production
-# Map: url_path => handler_function
-const STATIC_ROUTES = Ref{Union{Dict{String, Function}, Nothing}}(nothing)
+# Trie Node Structure for Optimized Routing
+mutable struct TrieNode
+    part::String
+    children::Dict{String, TrieNode}
+    is_param::Bool
+    param_name::String
+    handler::Union{Function, Nothing}
+end
+
+TrieNode(part::AbstractString) = TrieNode(String(part), Dict{String, TrieNode}(), false, "", nothing)
+
+# Root of the routing trie
+const ROUTE_TRIE = Ref{TrieNode}(TrieNode(""))
+
+const EMPTY_PARAMS = Dict{String,String}()
 
 """
     register_static_routes(routes::Dict{String, Function})
 
 Registers a static route map for production use.
-If registered, these routes take precedence over file system scanning.
+Builds a Radix Tree (Trie) for O(k) matching where k is the number of segments.
 """
 function register_static_routes(routes::Dict{String, Function})
-    STATIC_ROUTES[] = routes
+    root = TrieNode("")
+    
+    for (path, handler) in routes
+        clean_path = strip(path, '/')
+        segments = isempty(clean_path) ? String[] : split(clean_path, '/')
+        
+        current = root
+        
+        for segment in segments
+            is_param = startswith(segment, "[") && endswith(segment, "]")
+            key = is_param ? ":param" : segment
+            
+            if !haskey(current.children, key)
+                node = TrieNode(key)
+                if is_param
+                    node.is_param = true
+                    node.param_name = segment[2:end-1]
+                end
+                current.children[key] = node
+            end
+            
+            current = current.children[key]
+        end
+        
+        current.handler = handler
+    end
+    
+    ROUTE_TRIE[] = root
 end
 
 """
     match_static_route(path::String) -> Tuple{Union{Function, Nothing}, Dict{String, String}}
 
-Matches a path against registered static routes.
+Matches a path against registered static routes using the Trie.
 Returns (handler_function, params).
 """
 function match_static_route(path::String)
-    routes = STATIC_ROUTES[]
-    if routes === nothing
-        return nothing, Dict{String,String}()
+    root = ROUTE_TRIE[]
+    
+    # Optimization: Handle root path
+    if path == "/" || path == ""
+        return root.handler, EMPTY_PARAMS
     end
     
-    # 1. Exact match
-    if haskey(routes, path)
-        return routes[path], Dict{String,String}()
+    current = root
+    params = Dict{String,String}()
+    
+    # Iterate over path segments without splitting
+    # We find the start and end indices of each segment
+    start_idx = 1
+    if startswith(path, '/')
+        start_idx = 2
     end
     
-    # 2. Pattern match
-    clean_path = strip(path, '/')
-    segments = isempty(clean_path) ? String[] : split(clean_path, '/')
-    
-    for (route_pattern, handler) in routes
-        # Skip exact matches (already checked)
-        if !contains(route_pattern, "[") continue end
-        
-        pat_clean = strip(route_pattern, '/')
-        pat_segments = isempty(pat_clean) ? String[] : split(pat_clean, '/')
-        
-        if length(segments) != length(pat_segments) continue end
-        
-        match = true
-        params = Dict{String,String}()
-        
-        for i in 1:length(segments)
-            if startswith(pat_segments[i], "[") && endswith(pat_segments[i], "]")
-                key = pat_segments[i][2:end-1]
-                params[key] = segments[i]
-            elseif segments[i] != pat_segments[i]
-                match = false
-                break
-            end
+    len = length(path)
+    while start_idx <= len
+        # Find next slash
+        end_idx = findnext(==('/'), path, start_idx)
+        if end_idx === nothing
+            end_idx = len + 1
         end
         
-        if match
-            return handler, params
+        # Extract segment
+        # Using SubString to avoid allocation
+        segment = SubString(path, start_idx, end_idx-1)
+        
+        # 1. Try exact match
+        if haskey(current.children, segment)
+            current = current.children[segment]
+        # 2. Try param match
+        elseif haskey(current.children, ":param")
+            current = current.children[":param"]
+            params[current.param_name] = segment
+        else
+            return nothing, EMPTY_PARAMS
         end
+        
+        start_idx = end_idx + 1
     end
     
-    return nothing, Dict{String,String}()
+    return current.handler, params
 end
 
 """
@@ -85,18 +126,39 @@ end
 # Already exported by Nova.jl
 
 """
-    scan_routes(pages_dir::String="pages", api_dir::String="api") -> Dict{String, String}
+    scan_routes(pages_dir::Union{String,Nothing}=nothing, api_dir::Union{String,Nothing}=nothing) -> Dict{String, String}
 
 Scans the pages and api directories and generates a route map.
 Returns a dictionary mapping URL paths to file paths.
+Uses smart defaults if directories are not provided.
 
 # Examples
 ```julia
-routes = scan_routes("pages", "api")
-# Dict("/", "pages/index.jl", "/api/users" => "api/users.jl", ...)
+routes = scan_routes()
+routes = scan_routes("src/pages", "src/pages/api")
 ```
 """
-function scan_routes(pages_dir::String="pages", api_dir::String="api")
+function scan_routes(pages_dir::Union{String,Nothing}=nothing, api_dir::Union{String,Nothing}=nothing)
+    # Smart defaults (logic duplicated from Server.jl for consistency)
+    if pages_dir === nothing
+        if isdir(joinpath("src", "pages"))
+            pages_dir = joinpath("src", "pages")
+        else
+            pages_dir = "pages"
+        end
+    end
+
+    if api_dir === nothing
+        if pages_dir == joinpath("src", "pages") && isdir(joinpath("src", "pages", "api"))
+            api_dir = joinpath("src", "pages", "api")
+        elseif isdir("api")
+            api_dir = "api"
+        else
+            possible_api = joinpath(pages_dir, "api")
+            api_dir = isdir(possible_api) ? possible_api : "api"
+        end
+    end
+
     route_map = Dict{String, String}()
     
     # Helper to scan a directory
@@ -167,15 +229,19 @@ function generate_route_file(route_map::Dict{String, String}, output_file::Strin
     println(io, "module GeneratedRoutes")
     println(io, "")
     println(io, "using HTTP")
+    println(io, "using Nova")
     println(io, "")
     
     # Generate handler modules for each route
     for (route_path, file_path) in sort(collect(route_map))
         # Create a unique module name
-        module_name = replace(replace(route_path, "/" => "_"), "-" => "_")
-        module_name = "Route" * (module_name == "_" ? "_root" : module_name)
+        # Replace invalid characters for module names
+        safe_path = replace(route_path, r"[^a-zA-Z0-9_]" => "_")
+        module_name = "Route" * (safe_path == "_" ? "_root" : safe_path)
         
         println(io, "module $module_name")
+        println(io, "    using Nova")
+        println(io, "    using HTTP")
         println(io, "    include(\"$(abspath(file_path))\")")
         println(io, "end")
         println(io, "")
@@ -187,14 +253,23 @@ function generate_route_file(route_map::Dict{String, String}, output_file::Strin
     
     first = true
     for (route_path, _) in sort(collect(route_map))
-        module_name = replace(replace(route_path, "/" => "_"), "-" => "_")
-        module_name = "Route" * (module_name == "_" ? "_root" : module_name)
+        safe_path = replace(route_path, r"[^a-zA-Z0-9_]" => "_")
+        module_name = "Route" * (safe_path == "_" ? "_root" : safe_path)
         
         if !first
             println(io, ",")
         end
-        # We wrap the handler to pass req and params
-        print(io, "    \"$route_path\" => (req, params) -> $module_name.handler(req, params)")
+        # We wrap the handler to pass req and params with dispatch logic
+        print(io, """    "$route_path" => (req, params) -> begin
+        h = $module_name.handler
+        if applicable(h, req, params)
+            h(req, params)
+        elseif applicable(h, params)
+            h(params)
+        else
+            h()
+        end
+    end""")
         first = false
     end
     
@@ -368,6 +443,11 @@ function handle_page_route(file_path::String, params::Dict{String,String}=Dict{S
         Core.eval(mod, :(using Nova))
         Core.eval(mod, :(using HTTP))
         
+        # Define include to work within the module
+        Core.eval(mod, :(function include(path)
+            Base.include(@__MODULE__, path)
+        end))
+        
         # Include the file content into the module
         Base.include(mod, file_path)
         
@@ -385,16 +465,22 @@ function handle_page_route(file_path::String, params::Dict{String,String}=Dict{S
 end
 
 function execute_handler(mod::Module, req::HTTP.Request, params::Dict{String,String})
-    if isdefined(mod, :handler)
+    # Use invokelatest to check for handler existence and get it
+    # This avoids world age issues with isdefined and getfield
+    get_h(m) = isdefined(m, :handler) ? m.handler : nothing
+    
+    handler_func = Base.invokelatest(get_h, mod)
+    
+    if handler_func !== nothing
         try
-            return Base.invokelatest(mod.handler, req, params)
+            return Base.invokelatest(handler_func, req, params)
         catch e
             if e isa MethodError
                 try
-                    return Base.invokelatest(mod.handler, params)
+                    return Base.invokelatest(handler_func, params)
                 catch e2
                     if e2 isa MethodError
-                        return Base.invokelatest(mod.handler)
+                        return Base.invokelatest(handler_func)
                     else
                         rethrow(e2)
                     end

@@ -7,13 +7,13 @@ using FileWatching
 using Dates
 
 const DEV_PORT = 2518
-const WATCH_DIRS = ["pages", "src", "components", "api", "styles", "public"]
+const WATCH_DIRS = ["src/pages", "src", "components", "api", "styles", "public"]
 const WATCH_EXTENSIONS = [".jl", ".css", ".scss", ".js", ".html", ".svg", ".png", ".jpg"]
 
 function reload_modules()
     try
         Base.include(Main, "src/Nova.jl")
-        Base.include(Main, "pages/index.jl")
+        Base.include(Main, "src/pages/index.jl")
         @info "✔ Modules reloaded at $(Dates.format(now(), "HH:MM:SS"))"
         return true
     catch e
