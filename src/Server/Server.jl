@@ -114,22 +114,11 @@ function create_handler(; pages_dir::Union{String,Nothing}=nothing, public_dir::
                 end
             end
 
-            return HTTP.Response(404, """
-            <html><body>
-            <h1>404 - Page Not Found</h1>
-            <p>The page you're looking for doesn't exist.</p>
-            <a href="/">Back to home</a>
-            </body></html>
-            """)
+            # Throw NotFoundError which will be caught and formatted
+            throw(NotFoundError(string(req.target)))
         catch e
-            @error "Request error: $e"
-            return HTTP.Response(500, """
-            <html><body>
-            <h1>500 - Server Error</h1>
-            <pre>$e</pre>
-            <p><a href="/">Back to home</a></p>
-            </body></html>
-            """)
+            error_exception = isa(e, ServerError) ? e : ServerError(string(typeof(e).__name__), string(e))
+            return handle_error(error_exception, 500; request=req, dev_mode=false)
         end
     end
 end

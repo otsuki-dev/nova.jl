@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.7] - 2026-01-10
+
+### Added
+- **Robust Error Handling**: New `Utils/ErrorHandler.jl` module providing:
+  - Custom exception types: `NovaException`, `NotFoundError`, `ValidationError`, `ServerError`
+  - Beautiful, semantic error pages for 400, 404, and 500 status codes
+  - Structured error logging with timestamps and request context
+  - Stack trace display in development mode
+  - Function `handle_error()` for converting exceptions to HTTP responses
+  - Function `init_error_log()` for persistent error logging to files
+
+- **Input Validation System**: New `Utils/Validation.jl` module providing:
+  - Built-in validators: `required()`, `email()`, `min_length()`, `max_length()`, `matches()`, `in_list()`
+  - Schema-based validation with `validate_data(data, schema)`
+  - `@validate` macro for convenient, type-safe field validation
+  - `@validate_one` macro for single-field validation
+  - Clear, actionable error messages for failed validations
+  - Support for custom validators
+
+### Improved
+- **Server Error Handling**: Updated `Server.jl` to use new error handling system — all exceptions now return semantic HTML error pages
+- **404 Handling**: Improved 404 responses with better visual design and user experience
+- **Documentation**: Added examples for error handling and validation in API responses
+
+### Changed
+- **Error Messages**: Moved from generic plaintext errors to rich HTML pages with context-aware styling
+- **API Response Pattern**: Recommended pattern now uses `@validate` macro for input validation before processing
+
+---
+
 ## [0.0.6] - 2026-01-01
 
 ### Added
