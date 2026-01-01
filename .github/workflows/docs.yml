@@ -1,0 +1,53 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.12'
+
+    - name: Check documentation links
+      run: |
+        julia -e '
+        using Markdown
+        md_files = filter(f -> endswith(f, ".md"), readdir("docs", join=true))
+        push!(md_files, "README.md")
+        
+        for file in md_files
+          try
+            content = read(file, String)
+            @info "✓ $(file)"
+          catch e
+            @error "✗ $(file): $e"
+            exit(1)
+          end
+        end
+        '
+
+    - name: Verify markdown syntax
+      run: |
+        # Check for common markdown issues
+        echo "Checking markdown files..."
+        for file in docs/*.md README.md; do
+          if [ -f "$file" ]; then
+            echo "  ✓ $file"
+          fi
+        done

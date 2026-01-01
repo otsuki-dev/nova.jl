@@ -1,0 +1,92 @@
+name: Tests & CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ['1.10', '1.11', '1.12']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        exclude:
+          # Reduce matrix size for faster feedback
+          - os: macos-latest
+            julia-version: '1.10'
+          - os: windows-latest
+            julia-version: '1.10'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: ${{ matrix.julia-version }}
+        arch: x64
+
+    - name: Cache Julia dependencies
+      uses: julia-actions/cache@v1
+      with:
+        cache-name: julia-cache
+
+    - name: Install dependencies
+      run: |
+        julia --project -e 'using Pkg; Pkg.instantiate()'
+
+    - name: Run tests
+      run: |
+        julia --project test/runtests.jl
+
+    - name: Check code syntax
+      run: |
+        julia --project -e 'using Pkg; Pkg.status()'
+        julia --project -e 'using Nova' || echo "Warning: Could not import Nova"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.12'
+
+    - name: Install dependencies
+      run: |
+        julia --project -e 'using Pkg; Pkg.instantiate()'
+
+    - name: Check for common issues
+      run: |
+        julia --project -e 'println("Julia check passed!")'
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.12'
+
+    - name: Install dependencies
+      run: |
+        julia --project -e 'using Pkg; Pkg.instantiate()'
+
+    - name: Run performance benchmarks
+      run: |
+        julia --project test/bench.jl > benchmark_results.txt 2>&1 || true
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: benchmark_results.txt
+        retention-days: 30

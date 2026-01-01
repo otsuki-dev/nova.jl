@@ -28,3 +28,26 @@ temp/
 
 # Logs
 *.log
+logs/
+error.log
+
+# CI/CD artifacts
+benchmark_results.txt
+test_output.txt
+
+# Node modules (if using frontend tooling)
+node_modules/
+.npm
+
+# Environment files
+.env
+.env.local
+
+# macOS
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+*.exe
+*.dll

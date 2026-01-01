@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Julia
+.julia/
+Manifest.toml
+*.jl.*.cov
+*.jl.cov
+*.jl.mem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+
+# Build
+build/
+docs/build/
+docs/site/
+
+# CI
+.github/
+benchmark_results.txt
+
+# Tests
+test/
+stress_test.jl
+
+# Docs
+docs/
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+
+# Examples
+examples/
+nova-starter/
+
+# Temporary
+tmp/
+temp/
+*.log
+logs/

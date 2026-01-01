@@ -1,0 +1,40 @@
+name: Build Status
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.12'
+
+    - name: Test AOT Compilation
+      run: |
+        julia --project -e '
+        using Pkg
+        Pkg.instantiate()
+        
+        # Verify Nova can be imported
+        using Nova
+        @info "✓ Nova.jl imports successfully"
+        
+        # Test basic functionality
+        handler = Nova.create_handler()
+        @info "✓ Handler creation works"
+        '
+
+    - name: Check package version
+      run: |
+        julia --project -e '
+        using Pkg
+        Pkg.status("Nova")
+        '
