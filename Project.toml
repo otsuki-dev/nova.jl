@@ -1,6 +1,6 @@
 name = "Nova"
 uuid = "3773a66d-0ab3-48fd-a7ea-3eeb4935db53"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Felipe Samuel <129466661+felipe-sbm@users.noreply.github.com>"]
 
 [deps]
@@ -18,7 +18,7 @@ WebSockets = "104b5d7c-a370-577a-8038-80a2059c5097"
 [compat]
 Dates = "1"
 FileWatching = "1"
-HTTP = "1.10"
+HTTP = "1"
 JSON = "0.21"
 PackageCompiler = "2.2"
 Pkg = "1"

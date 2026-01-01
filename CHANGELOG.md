@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.6] - 2026-01-01
+
+### Added
+- **Project cleanup**: Comprehensive repository cleanup — all test and benchmark scripts moved to the `test/` directory
+- **Automatic diagnostics**: Added `diagnose.sh` to verify framework health and common environment issues
+- **Test documentation**: Updated `test/README.md` with a complete guide to the available tests and how to run them
+
+### Removed
+- **Obsolete files**: Removed legacy `nova.jl`, `dev.server.jl`, and the root-level `build/` directory; removed empty `api/` folder
+- **Duplicates**: Eliminated duplicated or obsolete test files
+
+### Performance
+- **Critical optimizations**: Improvements implemented across the router and HTTP handling
+  - Fast path for precompiled/static routes (achieving ~85–88% efficiency vs raw HTTP.jl)
+  - Eliminated unnecessary allocations in route matching
+  - Preallocated HTTP headers for cached responses
+  - TCP tuning (`tcp_nodelay`, `reuseaddr`) where supported
+- **Benchmarks**: ~10,600–11,000 requests/sec (100 concurrent connections, 4 threads)
+- **Framework overhead**: ~15% above raw HTTP.jl — among the most efficient full-stack frameworks in the Julia ecosystem
+
+### Changed
+- **Build behavior**: `nova build` now always generates precompiled/static route files for production builds
+- **Repository layout**: Project root contains only essential files after cleanup
+
+### Future Plans
+- **Custom HTTP engine (long-term)**: We plan to develop a native, full-Julia HTTP engine to overcome current limits of `HTTP.jl` (observed ~12.5k req/s) and target significantly higher per-process throughput (50k–100k+ req/s) through low-level optimizations and tighter integration with Julia's concurrency and memory model.
+
+---
+
 ## [0.0.5] - 2026-01-01
 
 ### High Performance

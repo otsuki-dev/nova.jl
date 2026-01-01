@@ -21,6 +21,7 @@ TrieNode(part::AbstractString) = TrieNode(String(part), Dict{String, TrieNode}()
 
 # Root of the routing trie
 const ROUTE_TRIE = Ref{TrieNode}(TrieNode(""))
+const ROUTES_REGISTERED = Ref{Bool}(false)
 
 const EMPTY_PARAMS = Dict{String,String}()
 
@@ -59,6 +60,7 @@ function register_static_routes(routes::Dict{String, Function})
     end
     
     ROUTE_TRIE[] = root
+    ROUTES_REGISTERED[] = true
 end
 
 """
@@ -76,7 +78,7 @@ function match_static_route(path::String)
     end
     
     current = root
-    params = Dict{String,String}()
+    params = nothing
     
     # Iterate over path segments without splitting
     # We find the start and end indices of each segment
@@ -103,6 +105,9 @@ function match_static_route(path::String)
         # 2. Try param match
         elseif haskey(current.children, ":param")
             current = current.children[":param"]
+            if params === nothing
+                params = Dict{String,String}()
+            end
             params[current.param_name] = segment
         else
             return nothing, EMPTY_PARAMS
@@ -111,7 +116,7 @@ function match_static_route(path::String)
         start_idx = end_idx + 1
     end
     
-    return current.handler, params
+    return current.handler, (params === nothing ? EMPTY_PARAMS : params)
 end
 
 """

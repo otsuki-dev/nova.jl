@@ -33,7 +33,7 @@ function handler()
         </ul>
         
         <footer>
-            <p>Nova.jl v0.0.3 - Built with Julia</p>
+            <p>Nova.jl v0.0.6 - Built with Julia</p>
         </footer>
     </body>
     </html>

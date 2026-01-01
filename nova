@@ -13,7 +13,7 @@ Commands:
 using Pkg
 Pkg.activate(@__DIR__)
 
-const NOVA_VERSION = "0.0.3"
+const NOVA_VERSION = "0.0.6"
 
 # ANSI Color codes for professional output
 const COLORS = (
@@ -304,6 +304,53 @@ function cmd_build(args)
     print("  ", SYMBOLS.check, "  ")
     color_print("Files copied successfully", :bright_green)
     
+    # Install Nova as a dependency
+    print("  ", SYMBOLS.package, "  ")
+    color_print("Adding Nova.jl dependency...", :bright_blue)
+    
+    # Get the absolute path to Nova.jl root
+    nova_root = abspath(dirname(@__FILE__))
+    
+    old_dir = pwd()
+    try
+        cd(build_dir)
+        run(`julia --project=. -e "using Pkg; Pkg.develop(path=\"$nova_root\")"`)
+        cd(old_dir)
+    catch e
+        cd(old_dir)
+        rethrow(e)
+    end
+    
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Nova.jl dependency added", :bright_green)
+    
+    # Generate routes for ALL builds (not just AOT)
+    print("  ", SYMBOLS.package, "  ")
+    color_print("Scanning routes...", :bright_blue)
+    
+    # Load Nova to scan routes
+    # We need to be careful not to reload if already loaded
+    if !isdefined(Main, :Nova)
+        Base.include(Main, "src/Nova.jl")
+    end
+    Nova = getfield(Main, :Nova)
+    
+    # Use smart defaults for scanning
+    pages_dir = isdir(joinpath("src", "pages")) ? joinpath("src", "pages") : "pages"
+    api_dir = isdir(joinpath("src", "pages", "api")) ? joinpath("src", "pages", "api") : "api"
+    
+    route_map = Base.invokelatest(getfield(Nova, :scan_routes), pages_dir, api_dir)
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Found $(length(route_map)) routes", :bright_green)
+    
+    # Generate routes file
+    print("  ", SYMBOLS.file, "  ")
+    color_print("Generating routes file...", :bright_blue)
+    
+    routes_file = Base.invokelatest(getfield(Nova, :generate_route_file), route_map, joinpath(build_dir, "routes_generated.jl"))
+    print("  ", SYMBOLS.check, "  ")
+    color_print("Routes file created", :bright_green)
+
     # Create production startup script
     print("  ", SYMBOLS.file, "  ")
     color_print("Creating production script...", :bright_blue)
@@ -320,6 +367,14 @@ Pkg.activate(".")
 
 # include("src/Nova.jl")
 using Nova
+
+# Include generated routes
+if isfile("routes_generated.jl")
+    include("routes_generated.jl")
+    using .GeneratedRoutes
+    println("  ✓ Loaded generated routes")
+    Nova.register_static_routes(GeneratedRoutes.ROUTE_HANDLERS)
+end
 
 println("🚀 Starting Nova.jl production server...")
 println("  Threads: \$(Threads.nthreads())")
@@ -404,29 +459,6 @@ NOVA_HOST=0.0.0.0 NOVA_PORT=3000 julia start.jl
         print("  ", SYMBOLS.rocket, "  ")
         color_print("AOT Compilation requested...", :bright_magenta, bold=true)
         println()
-        
-        # Load Nova to scan routes
-        print("  ", SYMBOLS.package, "  ")
-        color_print("Scanning routes...", :bright_blue)
-        
-        Base.include(Main, "src/Nova.jl")
-        Nova = getfield(Main, :Nova)
-        
-        # Use smart defaults for scanning
-        pages_dir = isdir(joinpath("src", "pages")) ? joinpath("src", "pages") : "pages"
-        api_dir = isdir(joinpath("src", "pages", "api")) ? joinpath("src", "pages", "api") : "api"
-        
-        route_map = Base.invokelatest(getfield(Nova, :scan_routes), pages_dir, api_dir)
-        print("  ", SYMBOLS.check, "  ")
-        color_print("Found $(length(route_map)) routes", :bright_green)
-        
-        # Generate routes file
-        print("  ", SYMBOLS.file, "  ")
-        color_print("Generating routes file...", :bright_blue)
-        
-        routes_file = Base.invokelatest(getfield(Nova, :generate_route_file), route_map, joinpath(build_dir, "routes_generated.jl"))
-        print("  ", SYMBOLS.check, "  ")
-        color_print("Routes file created", :bright_green)
         
         # Create enhanced precompile script
         print("  ", SYMBOLS.package, "  ")

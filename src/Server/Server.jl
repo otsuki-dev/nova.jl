@@ -9,6 +9,7 @@ Provides a clean, modular server implementation.
 # Uses route_to_file, handle_page_route from Router.jl and serve_static from Assets.jl
 
 const HTML_HEADERS = ["Content-Type" => "text/html"]
+const HTML_HEADERS_CACHED = ["Content-Type" => "text/html", "Cache-Control" => "max-age=60"]
 
 """
     create_handler(; pages_dir::Union{String,Nothing}=nothing, public_dir::String="public", api_dir::Union{String,Nothing}=nothing) -> Function
@@ -53,45 +54,48 @@ function create_handler(; pages_dir::Union{String,Nothing}=nothing, public_dir::
 
     return function(req::HTTP.Request)
         try
-            # 1. Try to serve static files first
-            # Optimization: Only check for static files if the path contains a dot
-            # This avoids file system calls for standard routes like /about
-            if req.target != "/" && contains(req.target, ".")
-                static_response = serve_static(req.target, public_dir)
-                if static_response !== nothing
-                    return static_response
-                end
-            end
-            
-            # 2. Try static routes (AOT/Production)
-            # This is much faster than filesystem scanning
-            static_handler, static_params = match_static_route(req.target)
-            if static_handler !== nothing
-                try
-                    # Direct call without invokelatest for static routes (they are pre-compiled)
+            # Fast path: Static routes (when registered)
+            # This is the primary code path for production builds
+            if ROUTES_REGISTERED[]
+                static_handler, static_params = match_static_route(req.target)
+                if static_handler !== nothing
                     result = static_handler(req, static_params)
                     if result isa HTTP.Response
                         return result
                     else
-                        return HTTP.Response(200, HTML_HEADERS, string(result))
+                        return HTTP.Response(200, HTML_HEADERS_CACHED, string(result))
                     end
-                catch e
-                    @error "Error in static handler: $e"
-                    rethrow(e)
                 end
-            end
-
-            # 3. Try to route to a page file (Dev/Fallback)
-            page_file, params = match_route(req.target, pages_dir, api_dir)
-            if page_file !== nothing
-                result = handle_page_route(page_file, params, req)
-                if result !== nothing
-                    # If handler returns HTTP.Response (e.g., for APIs), return it directly
-                    if result isa HTTP.Response
-                        return result
-                    else
-                        # Otherwise, treat as HTML string
-                        return HTTP.Response(200, HTML_HEADERS, string(result))
+                
+                # Check for static files
+                if req.target != "/" && contains(req.target, ".")
+                    static_response = serve_static(req.target, public_dir)
+                    if static_response !== nothing
+                        return static_response
+                    end
+                end
+            else
+                # Slow path: Development mode with file system scanning
+                # 1. Try to serve static files first
+                if req.target != "/" && contains(req.target, ".")
+                    static_response = serve_static(req.target, public_dir)
+                    if static_response !== nothing
+                        return static_response
+                    end
+                end
+                
+                # 2. Try to route to a page file (Dev/Fallback)
+                page_file, params = match_route(req.target, pages_dir, api_dir)
+                if page_file !== nothing
+                    result = handle_page_route(page_file, params, req)
+                    if result !== nothing
+                        # If handler returns HTTP.Response (e.g., for APIs), return it directly
+                        if result isa HTTP.Response
+                            return result
+                        else
+                            # Otherwise, treat as HTML string
+                            return HTTP.Response(200, HTML_HEADERS, string(result))
+                        end
                     end
                 end
             end
@@ -173,7 +177,13 @@ function start_server(handler=create_handler();
     end
     
     try
-        HTTP.serve(handler, host, port)
+        # Optimizations for high throughput
+        HTTP.serve(handler, host, port; 
+            verbose=false, 
+            access_log=nothing, 
+            reuseaddr=true, 
+            tcp_nodelay=true
+        )
     catch e
         if isa(e, InterruptException)
             # Saída sutil ao parar o servidor (apenas uma linha em branco)
