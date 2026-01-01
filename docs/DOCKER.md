@@ -119,7 +119,7 @@ spec:
     spec:
       containers:
       - name: nova
-        image: your-registry/nova-app:0.0.7
+        image: your-registry/nova-app:0.1.0
         ports:
         - containerPort: 2518
         env:
@@ -143,13 +143,13 @@ spec:
 
 ```bash
 # Build image
-docker build -t nova-app:0.0.7 .
+docker build -t nova-app:0.1.0 .
 
 # Tag for registry
-docker tag nova-app:0.0.7 your-registry/nova-app:0.0.7
+docker tag nova-app:0.1.0 your-registry/nova-app:0.1.0
 
 # Push
-docker push your-registry/nova-app:0.0.7
+docker push your-registry/nova-app:0.1.0
 
 # Deploy stack
 docker stack deploy -c docker-compose.yml nova
@@ -350,6 +350,6 @@ docker run -p 80:2518 nova-app:prod
 ### Push to Docker Hub
 
 ```bash
-docker build -t your-username/nova-app:0.0.7 .
-docker push your-username/nova-app:0.0.7
+docker build -t your-username/nova-app:0.1.0 .
+docker push your-username/nova-app:0.1.0
 ```

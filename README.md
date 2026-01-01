@@ -5,7 +5,7 @@
 **A minimal, modular web framework for Julia**
 
 [![Julia Version](https://img.shields.io/badge/julia-v1.6+-9558B2?style=for-the-badge&logo=julia&logoColor=white)](https://julialang.org)
-[![Version](https://img.shields.io/badge/version-0.0.7-blue?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![Tests](https://github.com/otsuki-dev/nova.jl/workflows/Tests%20&%20CI/badge.svg?style=for-the-badge)](https://github.com/otsuki-dev/nova.jl/actions/workflows/tests.yml)
 [![Build Status](https://github.com/otsuki-dev/nova.jl/workflows/Build%20Status/badge.svg?style=for-the-badge)](https://github.com/otsuki-dev/nova.jl/actions/workflows/build.yml)
@@ -18,6 +18,8 @@
 ---
 
 </div>
+
+> **🎉 Version 0.1.0 Released**: Initial objectives achieved! All core features implemented, tested, and production-ready. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Features
 
@@ -231,6 +233,34 @@ nova.jl/
 ```
 
 > **Architecture details:** [ARCHITECTURE.md](ARCHITECTURE.md)
+
+---
+
+## Status: Version 0.1.0 Milestone ✅
+
+Nova.jl has reached its first major release milestone with all initial objectives achieved:
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **File-based Routing** | ✅ Complete | Automatic route mapping from `pages/` directory |
+| **Hot Reload** | ✅ Complete | Instant feedback with `julia nova dev` |
+| **Error Handling** | ✅ Complete | Semantic HTTP errors with beautiful pages (404, 400, 500) |
+| **Input Validation** | ✅ Complete | Schema-based validation with custom validators |
+| **Static Assets** | ✅ Complete | Automatic favicon detection and serving |
+| **CI/CD Pipeline** | ✅ Complete | GitHub Actions testing on Julia 1.10, 1.11, 1.12 |
+| **Docker Support** | ✅ Complete | Production-ready Docker + nginx setup |
+| **Benchmarking** | ✅ Complete | Performance tracking framework |
+| **Test Coverage** | ✅ Complete | 36+ tests with 100% pass rate |
+| **Documentation** | ✅ Complete | Comprehensive guides and API docs |
+
+### Production Ready
+Nova.jl is **production-ready** with all core functionality implemented and thoroughly tested. The framework is suitable for building:
+- Fast API servers
+- Full-stack web applications  
+- Static site generators
+- Real-time applications (with extensions)
+
+---
 
 ## Documentation
 

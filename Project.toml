@@ -1,6 +1,6 @@
 name = "Nova"
 uuid = "3773a66d-0ab3-48fd-a7ea-3eeb4935db53"
-version = "0.0.7"
+version = "0.1.0"
 authors = ["Felipe Samuel <129466661+felipe-sbm@users.noreply.github.com>"]
 
 [deps]

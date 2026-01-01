@@ -117,8 +117,38 @@ function create_handler(; pages_dir::Union{String,Nothing}=nothing, public_dir::
             # Throw NotFoundError which will be caught and formatted
             throw(NotFoundError(string(req.target)))
         catch e
-            error_exception = isa(e, ServerError) ? e : ServerError(string(typeof(e).__name__), string(e))
-            return handle_error(error_exception, 500; request=req, dev_mode=false)
+            if isa(e, NotFoundError)
+                return handle_error(e, 404; request=req, dev_mode=false)
+            elseif isa(e, ValidationError)
+                return handle_error(e, 400; request=req, dev_mode=false)
+            elseif isa(e, ServerError)
+                return handle_error(e, 500; request=req, dev_mode=false)
+            else
+                error_exception = ServerError(String(nameof(typeof(e))), string(e))
+                return handle_error(error_exception, 500; request=req, dev_mode=false)
+            end
+        end
+    end
+end
+
+"""
+    safe_handler(handler::Function) -> Function
+
+Wraps a handler to gracefully handle broken pipe errors from clients.
+These are not server errors but client connection issues.
+"""
+function safe_handler(handler::Function)
+    return function(req::HTTP.Request)
+        try
+            return handler(req)
+        catch e
+            # Ignore broken pipe errors - they happen when clients disconnect
+            if isa(e, Base.IOError) && contains(string(e), "broken pipe")
+                # Return empty response to gracefully close connection
+                return HTTP.Response(200)
+            else
+                rethrow(e)
+            end
         end
     end
 end
@@ -152,6 +182,8 @@ function start_server(handler=create_handler();
                      port::Int=2518,
                      verbose::Bool=true)
     
+    # Wrap handler to gracefully handle broken pipe errors
+    safe_req_handler = safe_handler(handler)
     if verbose
         printstyled("  ⚡  ", color=:green, bold=true)
         printstyled("Nova.jl Server starting...", color=:white, bold=true)
@@ -167,7 +199,7 @@ function start_server(handler=create_handler();
     
     try
         # Optimizations for high throughput
-        HTTP.serve(handler, host, port; 
+        HTTP.serve(safe_req_handler, host, port; 
             verbose=false, 
             access_log=nothing, 
             reuseaddr=true, 

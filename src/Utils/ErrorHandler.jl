@@ -109,7 +109,8 @@ end
 Format error with all available context for logging.
 """
 function format_error_message(exception::Exception, request::Union{HTTP.Request, Nothing}=nothing; context::Dict=Dict())::String
-    lines = String["Error: $(typeof(exception).__name__)"]
+    exception_name = String(nameof(typeof(exception)))
+    lines = String["Error: $exception_name"]
     
     if isa(exception, NovaException)
         push!(lines, "Message: $(exception.message)")

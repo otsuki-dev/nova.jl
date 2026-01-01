@@ -10,8 +10,6 @@ module Validation
 export @validate, Validator, required, email, min_length, max_length, matches, in_list
 export validate, validate_data, ValidationError
 
-using Regex
-
 # Re-export ValidationError from ErrorHandler
 include("../Utils/ErrorHandler.jl")
 using .ErrorHandler: ValidationError

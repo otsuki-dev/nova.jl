@@ -78,6 +78,7 @@ favicon_html = auto_favicon("assets")
 """
 function auto_favicon(public_dir::String="public")
     favicon_files = [
+        ("logo.svg", "image/svg+xml"),
         ("favicon.svg", "image/svg+xml"),
         ("favicon.ico", "image/x-icon"),
         ("favicon.png", "image/png"),
